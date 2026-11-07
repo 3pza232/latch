@@ -152,7 +152,7 @@ fun SettingsScreen(
                 Text("定期自检", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "后台按间隔核对规则，发现漂移可通知",
+                    "后台按间隔校验；发现漂移会自动重新应用",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -168,13 +168,19 @@ fun SettingsScreen(
                 }
             }
             SwitchRow(
-                title = "漂移通知",
-                subtitle = "后台自检发现漂移时发送通知",
+                title = "修复失败时通知",
+                subtitle = "自动修复后仍有漂移时发送通知",
                 checked = state.settings.notifyOnDrift,
                 onChange = { enabled ->
                     onUpdateSettings(state.settings.copy(notifyOnDrift = enabled))
                     if (enabled) onRequestNotificationPermission()
                 },
+            )
+            SwitchRow(
+                title = "隐藏最近任务",
+                subtitle = "从最近任务列表隐藏 Latch",
+                checked = state.settings.hideFromRecents,
+                onChange = { onUpdateSettings(state.settings.copy(hideFromRecents = it)) },
             )
 
             SectionTitle("数据")

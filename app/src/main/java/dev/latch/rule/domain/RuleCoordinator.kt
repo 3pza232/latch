@@ -144,6 +144,13 @@ class RuleCoordinator(
         return verification
     }
 
+    suspend fun verifyAndRepair(): VerifyService.RepairReport {
+        val report = verifyService.verifyAndRepair()
+        val stored = resultStore.load()
+        _snapshot.update { it.copy(results = stored.results, verifiedAt = stored.verifiedAt) }
+        return report
+    }
+
     suspend fun importGroups(groups: List<RuleGroup>) = locked {
         val merged = _snapshot.value.groups.associateBy { it.id }.toMutableMap()
         groups.forEach { merged[it.id] = it }

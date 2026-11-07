@@ -9,6 +9,7 @@ data class LatchSettings(
     val autoVerifyOnBoot: Boolean = false,
     val periodicMinutes: Int = 0,
     val notifyOnDrift: Boolean = false,
+    val hideFromRecents: Boolean = false,
 )
 
 interface SettingsStore {
@@ -25,6 +26,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         autoVerifyOnBoot = prefs.getBoolean(KEY_BOOT, false),
         periodicMinutes = prefs.getInt(KEY_PERIODIC, 0),
         notifyOnDrift = prefs.getBoolean(KEY_NOTIFY, false),
+        hideFromRecents = prefs.getBoolean(KEY_HIDE_RECENTS, false),
     )
 
     override fun save(settings: LatchSettings) {
@@ -33,6 +35,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
             putBoolean(KEY_BOOT, settings.autoVerifyOnBoot)
             putInt(KEY_PERIODIC, settings.periodicMinutes)
             putBoolean(KEY_NOTIFY, settings.notifyOnDrift)
+            putBoolean(KEY_HIDE_RECENTS, settings.hideFromRecents)
         }
     }
 
@@ -42,5 +45,6 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         const val KEY_BOOT = "auto_verify_on_boot"
         const val KEY_PERIODIC = "periodic_minutes"
         const val KEY_NOTIFY = "notify_on_drift"
+        const val KEY_HIDE_RECENTS = "hide_from_recents"
     }
 }

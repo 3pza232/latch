@@ -38,6 +38,7 @@ class GatewayServer(
                 uri.endsWith("/enabled") && uri.startsWith("/api/groups/") && method == Method.POST ->
                     setGroupEnabled(session, uri)
                 uri == "/api/verify" && method == Method.POST -> verify()
+                uri == "/api/repair" && method == Method.POST -> repair()
                 uri == "/api/ping" -> json(Response.Status.OK, JSONObject().put("ok", true))
                 else -> json(Response.Status.NOT_FOUND, error("not found"))
             }
@@ -96,7 +97,8 @@ class GatewayServer(
                     .put(endpoint("DELETE", "/api/rules/{id}", null, "Delete one rule"))
                     .put(endpoint("POST", "/api/groups/{id}/enabled", JSONObject().put("enabled", true), "Enable/disable a whole group; enabling applies it"))
                     .put(endpoint("POST", "/api/groups/{id}/apply", null, "Apply all enabled rules in a group and verify"))
-                    .put(endpoint("POST", "/api/verify", null, "Verify every rule and refresh stored results")),
+                    .put(endpoint("POST", "/api/verify", null, "Verify every rule and refresh stored results"))
+                    .put(endpoint("POST", "/api/repair", null, "Verify, re-apply drifted rules, and report what remains broken")),
             )
             .put(
                 "capabilities",
@@ -270,6 +272,19 @@ class GatewayServer(
         val snapshot = runBlocking { coordinator.verifyAll() }
         val payload = JSONObject().put("ok", true).put("results", resultsJson(snapshot.results.values.toList()))
         return json(Response.Status.OK, payload)
+    }
+
+    private fun repair(): Response {
+        val report = runBlocking { coordinator.verifyAndRepair() }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("checked", report.checked)
+                .put("repaired", report.repaired)
+                .put("remainingDrifted", report.remainingDrifted)
+                .put("remainingFailed", report.remainingFailed),
+        )
     }
 
     private fun resultsJson(results: List<dev.latch.rule.data.StoredResult>): JSONArray = JSONArray().apply {

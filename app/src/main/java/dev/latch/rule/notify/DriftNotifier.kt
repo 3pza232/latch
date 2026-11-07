@@ -10,10 +10,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import dev.latch.rule.R
 
-/** Posts a single "rules drifted" notification; silently no-ops without permission. */
+/** Posts a notification only when automatic repair leaves rules broken. */
 class DriftNotifier(private val context: Context) {
 
-    fun notifyDrift(drifted: Int, failed: Int) {
+    fun notifyUnrepaired(drifted: Int, failed: Int) {
         if (drifted + failed == 0) return
         val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         if (needsPermission &&
@@ -24,16 +24,16 @@ class DriftNotifier(private val context: Context) {
         }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "规则漂移", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_ID, "规则状态", NotificationManager.IMPORTANCE_DEFAULT),
         )
         val text = buildString {
             if (drifted > 0) append("$drifted 条漂移")
             if (failed > 0) append(if (isEmpty()) "" else "，").append("$failed 条失败")
-            append("。打开 Latch 查看并修复。")
+            append("；自动修复未成功，请打开 Latch 处理。")
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_latch)
-            .setContentTitle("规则需要处理")
+            .setContentTitle("规则自动修复失败")
             .setContentText(text)
             .setAutoCancel(true)
             .build()

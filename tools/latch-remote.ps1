@@ -16,7 +16,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Address,
     [Parameter(Mandatory = $true)]
-    [ValidateSet('status', 'rules', 'apply', 'verify', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
+    [ValidateSet('status', 'rules', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
     [string]$Command,
     [string]$Code = '',
     [string]$Group = '',
@@ -89,6 +89,10 @@ switch ($Command) {
         "VERIFIED applied=$applied total=$($result.results.Count)"
         $result.results | Where-Object state -ne 'APPLIED' |
             Format-Table ruleId, state, expected, actual -AutoSize | Out-String -Width 200
+    }
+    'repair' {
+        $result = Invoke-Api -Method Post -Path '/api/repair'
+        "REPAIRED checked=$($result.checked) repaired=$($result.repaired) remainingDrifted=$($result.remainingDrifted) remainingFailed=$($result.remainingFailed)"
     }
     'enable' {
         if (-not $Rule) { throw 'enable requires -Rule <ruleId>' }

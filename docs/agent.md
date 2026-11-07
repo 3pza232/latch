@@ -38,6 +38,7 @@
 | POST | `/api/groups/{id}/enabled` | 启用/停用规则组（启用时自动应用） |
 | POST | `/api/groups/{id}/apply` | 应用规则组并校验 |
 | POST | `/api/verify` | 校验全部规则 |
+| POST | `/api/repair` | 校验并自动修复漂移，返回仍失败的条目 |
 
 示例：
 
@@ -60,6 +61,7 @@ POST /api/rules
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command rules
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command apply   -Group adslot-lock
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command verify
+./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command repair
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command disable -Rule <ruleId>
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command enable  -Rule <ruleId>
 ./tools/latch-remote.ps1 -Address 192.168.10.21:8765 -Command enable-group  -Group <groupId>

@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.latch.rule.data.InstalledApp
 import dev.latch.rule.ui.screens.GroupScreen
@@ -35,6 +36,11 @@ fun LatchApp(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    LaunchedEffect(state.settings.hideFromRecents) {
+        RecentsHider.apply(context as? android.app.Activity, state.settings.hideFromRecents)
+    }
 
     var selectedGroupId by rememberSaveable { mutableStateOf<String?>(null) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
