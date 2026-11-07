@@ -186,6 +186,17 @@ fun RuleEditorScreen(
                         )
                     }
                 }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    when (capabilityTab) {
+                        1 -> "真正收回运行时权限，应用会看到权限被拒。"
+                        2 -> "立即结束进程，之后应用可能自行重启。"
+                        3 -> "启用或停用整个应用包。"
+                        else -> "按系统操作权限限制能力，不改变运行时权限。"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             when (capabilityTab) {
@@ -209,6 +220,12 @@ fun RuleEditorScreen(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "ignore = 拒绝；allow = 允许；default = 跟随系统或权限默认值",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     Column {
                         SectionLabel("作用域")
@@ -224,6 +241,12 @@ fun RuleEditorScreen(
                                 label = { Text("包级") },
                             )
                         }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "UID 模式作用于整个 uid，通常更稳；包级只针对该应用包",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
                 1 -> {

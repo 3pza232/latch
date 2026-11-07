@@ -32,7 +32,7 @@
 | GET | `/api/state` | 网关与 Shizuku 状态、分组计数、汇总 |
 | GET | `/api/rules` | 完整规则文档 |
 | POST | `/api/import` | 用完整规则文档导入/合并规则 |
-| POST | `/api/rules` | 新增或更新规则 |
+| POST | `/api/rules` | 新增或更新规则（保存后立即应用并返回结果） |
 | POST | `/api/rules/{id}/enabled` | 启用/停用规则 |
 | DELETE | `/api/rules/{id}` | 删除规则 |
 | POST | `/api/groups/{id}/enabled` | 启用/停用规则组（启用时自动应用） |

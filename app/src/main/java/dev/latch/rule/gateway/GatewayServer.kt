@@ -211,10 +211,13 @@ class GatewayServer(
         if (groupId.isBlank() || coordinator.snapshot.value.groups.none { it.id == groupId }) {
             return json(Response.Status.BAD_REQUEST, error("unknown group"))
         }
-        runBlocking { coordinator.upsertRule(groupId, normalized) }
+        val result = runBlocking { coordinator.upsertRule(groupId, normalized) }
         return json(
             Response.Status.OK,
-            JSONObject().put("ok", true).put("rule", RuleCodec.encodeRule(normalized)),
+            JSONObject()
+                .put("ok", true)
+                .put("rule", RuleCodec.encodeRule(normalized))
+                .put("result", result?.let { resultsJson(listOf(it)) }),
         )
     }
 

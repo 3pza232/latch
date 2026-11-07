@@ -166,7 +166,12 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun upsertRule(groupId: String, rule: Rule) {
-        viewModelScope.launch { container.ruleCoordinator.upsertRule(groupId, rule) }
+        viewModelScope.launch {
+            val result = container.ruleCoordinator.upsertRule(groupId, rule)
+            if (result != null) {
+                _uiState.update { it.copy(message = summarize(rule.name, listOf(result))) }
+            }
+        }
     }
 
     fun deleteRule(ruleId: String) {

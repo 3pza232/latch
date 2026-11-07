@@ -86,17 +86,23 @@ class RuleCoordinator(
         }
     }
 
-    suspend fun upsertRule(groupId: String, rule: Rule) = locked {
-        persistGroups(
-            _snapshot.value.groups.map { group ->
-                if (group.id != groupId) return@map group
-                val exists = group.rules.any { it.id == rule.id }
-                group.withRules(
-                    if (exists) group.rules.map { if (it.id == rule.id) rule else it }
-                    else group.rules + rule,
-                )
-            },
-        )
+    /** Create or update a rule and, when it is active, apply it immediately. */
+    suspend fun upsertRule(groupId: String, rule: Rule): StoredResult? = locked {
+        val groups = _snapshot.value.groups.map { group ->
+            if (group.id != groupId) return@map group
+            val exists = group.rules.any { it.id == rule.id }
+            group.withRules(
+                if (exists) group.rules.map { if (it.id == rule.id) rule else it }
+                else group.rules + rule,
+            )
+        }
+        val group = groups.firstOrNull { it.id == groupId } ?: return@locked null
+        persistGroups(groups)
+        if (!rule.enabled || !group.enabled) return@locked null
+        val checkedAt = System.currentTimeMillis()
+        val result = engine.apply(rule).toStored(checkedAt)
+        persistResults(_snapshot.value.results + (rule.id to result), checkedAt)
+        result
     }
 
     suspend fun deleteRule(ruleId: String) = locked {
