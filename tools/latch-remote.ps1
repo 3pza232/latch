@@ -36,7 +36,7 @@ function Get-Token {
     }
     if (-not $Code) { throw 'No token stored. Pass -Code with the pairing code shown in Latch.' }
     $payload = @{ code = $Code } | ConvertTo-Json
-    $response = Invoke-RestMethod -Uri "$base/pair" -Method Post -ContentType 'application/json' -Body $payload
+    $response = Invoke-RestMethod -Uri "$base/pair" -Method Post -ContentType 'application/json; charset=utf-8' -Body $payload
     $response.token | Set-Content -Path $TokenFile -NoNewline
     return $response.token
 }
@@ -48,7 +48,7 @@ function Invoke-Api {
     param([string]$Method, [string]$Path, [string]$Body)
     try {
         $args = @{ Uri = "$base$Path"; Method = $Method; Headers = $headers }
-        if ($Body) { $args.ContentType = 'application/json'; $args.Body = $Body }
+        if ($Body) { $args.ContentType = 'application/json; charset=utf-8'; $args.Body = $Body }
         return Invoke-RestMethod @args
     } catch {
         $status = $_.Exception.Response.StatusCode.value__

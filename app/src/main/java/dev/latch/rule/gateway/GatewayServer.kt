@@ -286,14 +286,19 @@ class GatewayServer(
         JSONObject(bodyText(session))
     }.getOrNull()
 
-    /** NanoHTTPD only parses POST/PUT bodies, so all write endpoints use POST. */
+    /** Read the request body as UTF-8 regardless of the Content-Type charset. */
     private fun bodyText(session: IHTTPSession): String {
-        val parsed = runCatching {
-            val map = HashMap<String, String>()
-            session.parseBody(map)
-            map["postData"]
-        }.getOrNull()
-        return parsed.orEmpty()
+        val length = session.headers["content-length"]?.toIntOrNull() ?: 0
+        if (length <= 0) return ""
+        val stream = session.inputStream ?: return ""
+        val buffer = ByteArray(length)
+        var offset = 0
+        while (offset < length) {
+            val read = stream.read(buffer, offset, length - offset)
+            if (read <= 0) break
+            offset += read
+        }
+        return String(buffer, 0, offset, Charsets.UTF_8)
     }
 
     private fun error(message: String): JSONObject =
