@@ -99,7 +99,8 @@ fun LatchApp(
                 state = state,
                 onBack = { settingsOpen = false },
                 onRequestPermission = onRequestPermission,
-                onRefreshPrivilege = viewModel::refreshPrivilege,
+                onRefreshPrivilege = { viewModel.refreshPrivilege(openShizukuOnFailure = true) },
+                onOpenShizuku = viewModel::openShizuku,
                 onUpdateSettings = viewModel::updateSettings,
                 onRequestNotificationPermission = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -113,7 +114,6 @@ fun LatchApp(
                 onStartAgent = viewModel::startAgentGateway,
                 onStopAgent = viewModel::stopAgentGateway,
             )
-
             selectedGroup != null -> GroupScreen(
                 group = selectedGroup,
                 state = state,
@@ -139,8 +139,10 @@ fun LatchApp(
 
             else -> HomeScreen(
                 state = state,
-                onNewGroup = viewModel::createGroup,                onRequestPermission = onRequestPermission,
-                onRefreshPrivilege = viewModel::refreshPrivilege,
+                onNewGroup = viewModel::createGroup,
+                onRequestPermission = onRequestPermission,
+                onRefreshPrivilege = { viewModel.refreshPrivilege(openShizukuOnFailure = true) },
+                onOpenShizuku = viewModel::openShizuku,
                 onGroupClick = { selectedGroupId = it },
                 onGroupToggle = viewModel::setGroupEnabled,
                 onVerifyAll = { viewModel.verifyAll() },

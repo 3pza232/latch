@@ -51,6 +51,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onRequestPermission: () -> Unit,
     onRefreshPrivilege: () -> Unit,
+    onOpenShizuku: () -> Unit,
     onUpdateSettings: (LatchSettings) -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onImportJson: () -> Unit,
@@ -102,6 +103,7 @@ fun SettingsScreen(
                 status = state.privilege,
                 onRequestPermission = onRequestPermission,
                 onRefresh = onRefreshPrivilege,
+                onOpenShizuku = onOpenShizuku,
             )
 
             SectionTitle("局域网连接")

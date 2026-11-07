@@ -129,8 +129,23 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun refreshPrivilege() {
-        _uiState.update { it.copy(privilege = container.privilegeBroker.status()) }
+    fun refreshPrivilege(openShizukuOnFailure: Boolean = false) {
+        val status = container.privilegeBroker.status()
+        _uiState.update { it.copy(privilege = status) }
+        if (openShizukuOnFailure && status != PrivilegeStatus.READY) {
+            openShizuku()
+        }
+    }
+
+    fun openShizuku() {
+        val intent = container.appContext.packageManager
+            .getLaunchIntentForPackage(SHIZUKU_PACKAGE)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent == null) {
+            _uiState.update { it.copy(message = "未安装 Shizuku") }
+        } else {
+            runCatching { container.appContext.startActivity(intent) }
+        }
     }
 
     fun onPermissionResult(granted: Boolean) {
@@ -336,6 +351,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     companion object {
+        private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+
         fun factory(container: AppContainer) = viewModelFactory {
             initializer { LatchViewModel(container) }
         }

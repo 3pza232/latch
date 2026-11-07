@@ -25,6 +25,7 @@ fun ShizukuStatusCard(
     status: PrivilegeStatus,
     onRequestPermission: () -> Unit,
     onRefresh: () -> Unit,
+    onOpenShizuku: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -53,7 +54,10 @@ fun ShizukuStatusCard(
             when (status) {
                 PrivilegeStatus.READY -> StatusChip(RuleState.APPLIED)
                 PrivilegeStatus.NOT_GRANTED -> Button(onClick = onRequestPermission) { Text("授权") }
-                PrivilegeStatus.UNAVAILABLE -> TextButton(onClick = onRefresh) { Text("重新检测") }
+                PrivilegeStatus.UNAVAILABLE -> Row {
+                    TextButton(onClick = onOpenShizuku) { Text("打开 Shizuku") }
+                    TextButton(onClick = onRefresh) { Text("重新检测") }
+                }
             }
         }
     }

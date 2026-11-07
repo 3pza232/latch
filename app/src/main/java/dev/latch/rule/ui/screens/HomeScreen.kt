@@ -44,6 +44,7 @@ fun HomeScreen(
     onNewGroup: (String, String) -> Unit,
     onRequestPermission: () -> Unit,
     onRefreshPrivilege: () -> Unit,
+    onOpenShizuku: () -> Unit,
     onGroupClick: (String) -> Unit,
     onGroupToggle: (String, Boolean) -> Unit,
     onVerifyAll: () -> Unit,
@@ -98,6 +99,7 @@ fun HomeScreen(
                     status = state.privilege,
                     onRequestPermission = onRequestPermission,
                     onRefresh = onRefreshPrivilege,
+                    onOpenShizuku = onOpenShizuku,
                 )
             }
             if (state.groups.isEmpty() && !state.loading) {
