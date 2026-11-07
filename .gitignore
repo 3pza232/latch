@@ -18,9 +18,12 @@ captures/
 # 构建产物
 *.apk
 *.aab
+*.hprof
+
+# 签名（不入库）
+keystore/
 *.jks
 *.keystore
-*.hprof
 
 # 系统文件
 .DS_Store
