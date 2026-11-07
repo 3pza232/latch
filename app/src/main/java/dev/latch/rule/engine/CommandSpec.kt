@@ -35,7 +35,7 @@ class PermissionStateParser(
 ) : OutputParser {
 
     override fun extract(output: String): String {
-        val (granted, flags) = grantOf(output, permission)
+        val granted = grantOf(output, permission).first
         val foreground = op != null &&
             Regex("Uid mode:\\s*${Regex.escape(op)}\\s*:\\s*foreground").containsMatchIn(output)
         return when (mode) {
@@ -44,13 +44,6 @@ class PermissionStateParser(
 
             PermissionMode.DENY ->
                 if (granted == false) "deny" else "granted"
-
-            PermissionMode.ASK ->
-                when {
-                    granted != false -> "granted"
-                    flags.contains("REVOKE_WHEN_REQUESTED") -> "ask"
-                    else -> "deny"
-                }
 
             PermissionMode.WHILE_IN_USE ->
                 when {
@@ -70,10 +63,15 @@ class PermissionStateParser(
             }
 
             PermissionMode.SELECTED -> {
-                val visual = grantOf(output, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED").first
-                val images = grantOf(output, "android.permission.READ_MEDIA_IMAGES").first
-                val video = grantOf(output, "android.permission.READ_MEDIA_VIDEO").first
-                if (visual == true && images == false && video == false) "selected" else "denied"
+                val visual = grantOf(output, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
+                val images = grantOf(output, "android.permission.READ_MEDIA_IMAGES")
+                val video = grantOf(output, "android.permission.READ_MEDIA_VIDEO")
+                val userSet = listOf(visual, images, video).all { it.second.contains("USER_SET") }
+                if (visual.first == true && images.first == false && video.first == false && userSet) {
+                    "selected"
+                } else {
+                    "denied"
+                }
             }
         }
     }

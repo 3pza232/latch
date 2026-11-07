@@ -279,7 +279,7 @@ fun RuleEditorScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "允许/仅使用时/每次询问/禁止；位置支持仅大致，照片支持受限访问。",
+                            "允许/仅使用时/禁止；位置支持仅大致，照片支持受限访问。",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -409,22 +409,19 @@ private fun permissionModes(permission: String): List<PermissionMode> = when {
         PermissionMode.ALLOW,
         PermissionMode.WHILE_IN_USE,
         PermissionMode.APPROXIMATE,
-        PermissionMode.ASK,
         PermissionMode.DENY,
     )
     permission == "android.permission.READ_MEDIA_IMAGES" -> listOf(
         PermissionMode.ALLOW,
         PermissionMode.SELECTED,
-        PermissionMode.ASK,
         PermissionMode.DENY,
     )
     permission == "android.permission.CAMERA" || permission == "android.permission.RECORD_AUDIO" -> listOf(
         PermissionMode.ALLOW,
         PermissionMode.WHILE_IN_USE,
-        PermissionMode.ASK,
         PermissionMode.DENY,
     )
-    else -> listOf(PermissionMode.ALLOW, PermissionMode.ASK, PermissionMode.DENY)
+    else -> listOf(PermissionMode.ALLOW, PermissionMode.DENY)
 }
 
 private fun defaultRuleName(capability: Capability): String = when (capability) {

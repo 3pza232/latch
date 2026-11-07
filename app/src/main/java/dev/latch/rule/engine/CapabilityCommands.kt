@@ -53,11 +53,6 @@ object CapabilityCommands {
                 append("pm revoke --user 0 $pkg $permission")
                 if (op != null) append("; cmd appops set --uid $pkg $op ignore")
             } to ""
-            PermissionMode.ASK -> buildString {
-                append("pm revoke --user 0 $pkg $permission")
-                append("; pm clear-permission-flags --user 0 $pkg $permission user-set user-fixed")
-                append("; pm set-permission-flags --user 0 $pkg $permission revoke-when-requested")
-            } to ""
             PermissionMode.WHILE_IN_USE -> buildString {
                 append("pm grant --user 0 $pkg $permission")
                 if (op != null) append("; cmd appops set --uid $pkg $op foreground")
@@ -70,6 +65,12 @@ object CapabilityCommands {
                 append("pm grant --user 0 $pkg android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
                 append("; pm revoke --user 0 $pkg android.permission.READ_MEDIA_IMAGES")
                 append("; pm revoke --user 0 $pkg android.permission.READ_MEDIA_VIDEO")
+                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_VISUAL_USER_SELECTED user-set")
+                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_IMAGES user-set")
+                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_VIDEO user-set")
+                append("; cmd appops set --uid $pkg READ_MEDIA_VISUAL_USER_SELECTED ignore")
+                append("; cmd appops set --uid $pkg READ_MEDIA_IMAGES ignore")
+                append("; cmd appops set --uid $pkg READ_MEDIA_VIDEO ignore")
             } to ""
         }
         return CommandSpec(

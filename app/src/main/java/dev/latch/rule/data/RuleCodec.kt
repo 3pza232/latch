@@ -95,7 +95,7 @@ object RuleCodec {
         )
         "permissionState" -> Capability.PermissionState(
             permission = json.getString("permission"),
-            mode = PermissionMode.entries.firstOrNull { it.wire == json.optString("mode") } ?: PermissionMode.ALLOW,
+            mode = PermissionMode.entries.firstOrNull { it.wire == json.optString("mode") } ?: PermissionMode.DENY,
         )
         // Legacy formats: treat old grant/revoke rules as allow/deny states.
         "revokePermission" -> Capability.PermissionState(

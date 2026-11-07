@@ -51,21 +51,22 @@ AppOps 与运行时权限是两套机制：权限型 AppOps 的模式由权限�
 |---|---|---|
 | `allow` | `pm grant` | 权限 granted |
 | `foreground` | `pm grant` + `cmd appops set --uid <op> foreground` | granted 且对应 op 为 foreground |
-| `ask` | `pm revoke` + 清除 `user-set`/`user-fixed` + 设置 `revoke-when-requested` | granted=false 且带 `REVOKE_WHEN_REQUESTED` |
 | `deny` | `pm revoke` + `cmd appops set --uid <op> ignore` | granted=false |
 | `approximate` | grant `ACCESS_COARSE_LOCATION` + revoke `ACCESS_FINE_LOCATION` | coarse=true、fine=false |
-| `selected` | grant `READ_MEDIA_VISUAL_USER_SELECTED` + revoke `READ_MEDIA_IMAGES`/`VIDEO` | visual=true、images/video=false |
+| `selected` | grant `READ_MEDIA_VISUAL_USER_SELECTED` + revoke `READ_MEDIA_IMAGES`/`VIDEO` + 三个权限加 `user-set` 标志 | visual=true、images/video=false 且带 `USER_SET` |
 
 编辑器按权限类型给出可用状态：
 
-- 普通权限：允许 / 每次询问 / 禁止
+- 普通权限：允许 / 禁止
 - 相机、麦克风：额外提供"仅使用时允许"
 - 位置：额外提供"仅使用时允许"与"大致位置"
 - 照片：额外提供"受限访问"
 
 说明：
 
-- "每次询问" 依赖系统权限标志，部分应用/ROM 不可设置，失败会显示漂移；
+- "每次询问"由系统权限控制器维护（`REVOKE_WHEN_REQUESTED + ONE_TIME`），
+  `ONE_TIME` 只能由系统 UI 产生，Shizuku 级工具无法设置，因此不在可选状态里；
+  需要时请到系统权限页手动选择；
 - 权限型操作的 AppOps 模式由系统权限状态推导，直接写 AppOps `allow` 通常无效；
 - 应用未声明的权限（如某些系统组件的 `BODY_SENSORS`）无法授予，只能保持禁止。
 

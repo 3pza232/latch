@@ -12,7 +12,6 @@ enum class OpMode(val wire: String) {
 enum class PermissionMode(val wire: String, val label: String) {
     ALLOW("allow", "允许"),
     WHILE_IN_USE("foreground", "仅使用时允许"),
-    ASK("ask", "每次询问"),
     DENY("deny", "禁止"),
     APPROXIMATE("approximate", "大致位置"),
     SELECTED("selected", "受限访问"),
