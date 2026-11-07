@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.OpScope
+import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.data.InstalledApp
 import dev.latch.rule.data.OpLabels
@@ -86,7 +87,7 @@ fun RuleEditorScreen(
     var capabilityTab by rememberSaveable {
         mutableIntStateOf(
             when (initialCapability) {
-                is Capability.RevokePermission, is Capability.GrantPermission -> 1
+                is Capability.PermissionState -> 1
                 Capability.ForceStop -> 2
                 is Capability.SetEnabled -> 3
                 else -> 0
@@ -97,14 +98,10 @@ fun RuleEditorScreen(
     var mode by rememberSaveable { mutableStateOf((initialCapability as? Capability.AppOp)?.mode ?: OpMode.IGNORE) }
     var scope by rememberSaveable { mutableStateOf((initialCapability as? Capability.AppOp)?.scope ?: OpScope.UID) }
     var permission by rememberSaveable {
-        mutableStateOf(
-            (initialCapability as? Capability.RevokePermission)?.permission
-                ?: (initialCapability as? Capability.GrantPermission)?.permission
-                ?: COMMON_PERMISSIONS.first(),
-        )
+        mutableStateOf((initialCapability as? Capability.PermissionState)?.permission ?: COMMON_PERMISSIONS.first())
     }
-    var permissionGranted by rememberSaveable {
-        mutableStateOf(initialCapability is Capability.GrantPermission)
+    var permissionMode by rememberSaveable {
+        mutableStateOf((initialCapability as? Capability.PermissionState)?.mode ?: PermissionMode.ALLOW)
     }
     var appEnabled by rememberSaveable {
         mutableStateOf((initialCapability as? Capability.SetEnabled)?.enabled ?: false)
@@ -119,11 +116,7 @@ fun RuleEditorScreen(
             return
         }
         val capability = when (capabilityTab) {
-            1 -> if (permissionGranted) {
-                Capability.GrantPermission(permission)
-            } else {
-                Capability.RevokePermission(permission)
-            }
+            1 -> Capability.PermissionState(permission, permissionMode)
             2 -> Capability.ForceStop
             3 -> Capability.SetEnabled(appEnabled)
             else -> Capability.AppOp(op, mode, scope)
@@ -266,26 +259,27 @@ fun RuleEditorScreen(
                         DropdownField(
                             value = permission,
                             options = COMMON_PERMISSIONS.map { it to it },
-                            onSelect = { permission = it },
+                            onSelect = {
+                                permission = it
+                                val allowed = permissionModes(it)
+                                if (permissionMode !in allowed) permissionMode = allowed.first()
+                            },
                         )
                     }
                     Column {
-                        SectionLabel("动作")
+                        SectionLabel("状态")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = !permissionGranted,
-                                onClick = { permissionGranted = false },
-                                label = { Text("撤销权限") },
-                            )
-                            FilterChip(
-                                selected = permissionGranted,
-                                onClick = { permissionGranted = true },
-                                label = { Text("授予权限") },
-                            )
+                            permissionModes(permission).forEach { entry ->
+                                FilterChip(
+                                    selected = permissionMode == entry,
+                                    onClick = { permissionMode = entry },
+                                    label = { Text(entry.label) },
+                                )
+                            }
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "撤销：应用看到权限被拒。授予：强制打开权限，会覆盖系统设置里的拒绝。",
+                            "允许/仅使用时/每次询问/禁止；位置支持仅大致，照片支持受限访问。",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -410,10 +404,32 @@ private fun DropdownField(
     }
 }
 
+private fun permissionModes(permission: String): List<PermissionMode> = when {
+    permission.contains("LOCATION") -> listOf(
+        PermissionMode.ALLOW,
+        PermissionMode.WHILE_IN_USE,
+        PermissionMode.APPROXIMATE,
+        PermissionMode.ASK,
+        PermissionMode.DENY,
+    )
+    permission == "android.permission.READ_MEDIA_IMAGES" -> listOf(
+        PermissionMode.ALLOW,
+        PermissionMode.SELECTED,
+        PermissionMode.ASK,
+        PermissionMode.DENY,
+    )
+    permission == "android.permission.CAMERA" || permission == "android.permission.RECORD_AUDIO" -> listOf(
+        PermissionMode.ALLOW,
+        PermissionMode.WHILE_IN_USE,
+        PermissionMode.ASK,
+        PermissionMode.DENY,
+    )
+    else -> listOf(PermissionMode.ALLOW, PermissionMode.ASK, PermissionMode.DENY)
+}
+
 private fun defaultRuleName(capability: Capability): String = when (capability) {
     is Capability.AppOp -> OpLabels.label(capability.op)
-    is Capability.RevokePermission -> capability.permission.substringAfterLast('.')
-    is Capability.GrantPermission -> capability.permission.substringAfterLast('.')
+    is Capability.PermissionState -> "${capability.mode.label} ${capability.permission.substringAfterLast('.')}"
     Capability.ForceStop -> "强制停止"
     is Capability.SetEnabled -> if (capability.enabled) "启用应用" else "停用应用"
 }

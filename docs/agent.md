@@ -47,7 +47,7 @@ GET /api/state
 Authorization: Bearer <token>
 
 POST /api/rules
-{"groupId":"<groupId>","rule":{"name":"短信","targetPackage":"com.example.app","enabled":true,"capability":{"type":"appOp","op":"READ_SMS","mode":"ignore","scope":"uid"}}}
+{"groupId":"<groupId>","rule":{"name":"允许相机","targetPackage":"com.example.app","enabled":true,"capability":{"type":"permissionState","permission":"android.permission.CAMERA","mode":"allow"}}}
 ```
 
 ## CLI

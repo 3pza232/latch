@@ -3,6 +3,7 @@ package dev.latch.rule.data
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.OpScope
+import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import org.json.JSONArray
@@ -73,13 +74,10 @@ object RuleCodec {
                 put("mode", capability.mode.wire)
                 put("scope", capability.scope.name.lowercase())
             }
-            is Capability.RevokePermission -> {
-                put("type", "revokePermission")
+            is Capability.PermissionState -> {
+                put("type", "permissionState")
                 put("permission", capability.permission)
-            }
-            is Capability.GrantPermission -> {
-                put("type", "grantPermission")
-                put("permission", capability.permission)
+                put("mode", capability.mode.wire)
             }
             Capability.ForceStop -> put("type", "forceStop")
             is Capability.SetEnabled -> {
@@ -95,8 +93,19 @@ object RuleCodec {
             mode = OpMode.entries.firstOrNull { it.wire == json.optString("mode") } ?: OpMode.IGNORE,
             scope = if (json.optString("scope") == "package") OpScope.PACKAGE else OpScope.UID,
         )
-        "revokePermission" -> Capability.RevokePermission(json.getString("permission"))
-        "grantPermission" -> Capability.GrantPermission(json.getString("permission"))
+        "permissionState" -> Capability.PermissionState(
+            permission = json.getString("permission"),
+            mode = PermissionMode.entries.firstOrNull { it.wire == json.optString("mode") } ?: PermissionMode.ALLOW,
+        )
+        // Legacy formats: treat old grant/revoke rules as allow/deny states.
+        "revokePermission" -> Capability.PermissionState(
+            permission = json.getString("permission"),
+            mode = PermissionMode.DENY,
+        )
+        "grantPermission" -> Capability.PermissionState(
+            permission = json.getString("permission"),
+            mode = PermissionMode.ALLOW,
+        )
         "forceStop" -> Capability.ForceStop
         "setEnabled" -> Capability.SetEnabled(json.optBoolean("enabled", false))
         else -> error("unknown capability: ${json.getString("type")}")

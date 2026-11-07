@@ -334,11 +334,12 @@ class GatewayServer(
             .put(
                 "capability",
                 JSONObject()
-                    .put("type", "appOp | revokePermission | grantPermission | forceStop | setEnabled")
+                    .put("type", "appOp | permissionState | forceStop | setEnabled")
                     .put("op", "<AppOps op, for appOp>")
                     .put("mode", "ignore | allow | default")
                     .put("scope", "uid | package")
-                    .put("permission", "<permission, for revokePermission>")
+                    .put("permission", "<permission, for permissionState>")
+                    .put("mode", "allow | foreground | ask | deny | approximate | selected")
                     .put("enabled", "<bool, for setEnabled>"),
             )
     }

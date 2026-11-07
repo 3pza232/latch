@@ -1,5 +1,7 @@
 package dev.latch.rule.engine
 
+import dev.latch.rule.core.model.PermissionMode
+
 /** Extracts a comparable value from a command's stdout. */
 fun interface OutputParser {
     fun extract(output: String): String?
@@ -25,13 +27,62 @@ class AppOpParser(private val op: String) : OutputParser {
             ?: if (defaultMode.containsMatchIn(output)) "default" else null
 }
 
-class PermissionGrantParser(permission: String) : OutputParser {
+/** Compares the permission grant state (and AppOps foreground where relevant). */
+class PermissionStateParser(
+    private val permission: String,
+    private val mode: PermissionMode,
+    private val op: String?,
+) : OutputParser {
 
-    private val shortName = permission.substringAfterLast('.')
-    private val granted = Regex("$shortName: granted=(true|false)")
+    override fun extract(output: String): String {
+        val (granted, flags) = grantOf(output, permission)
+        val foreground = op != null &&
+            Regex("Uid mode:\\s*${Regex.escape(op)}\\s*:\\s*foreground").containsMatchIn(output)
+        return when (mode) {
+            PermissionMode.ALLOW ->
+                if (granted == true) "allow" else "denied"
 
-    override fun extract(output: String): String? =
-        granted.find(output)?.let { "granted=${it.groupValues[1]}" }
+            PermissionMode.DENY ->
+                if (granted == false) "deny" else "granted"
+
+            PermissionMode.ASK ->
+                when {
+                    granted != false -> "granted"
+                    flags.contains("REVOKE_WHEN_REQUESTED") -> "ask"
+                    else -> "deny"
+                }
+
+            PermissionMode.WHILE_IN_USE ->
+                when {
+                    granted == true && foreground -> "foreground"
+                    granted == true -> "allow"
+                    else -> "denied"
+                }
+
+            PermissionMode.APPROXIMATE -> {
+                val coarse = grantOf(output, "android.permission.ACCESS_COARSE_LOCATION").first
+                val fine = grantOf(output, "android.permission.ACCESS_FINE_LOCATION").first
+                when {
+                    coarse == true && fine == false -> "approximate"
+                    coarse == true -> "precise"
+                    else -> "denied"
+                }
+            }
+
+            PermissionMode.SELECTED -> {
+                val visual = grantOf(output, "android.permission.READ_MEDIA_VISUAL_USER_SELECTED").first
+                val images = grantOf(output, "android.permission.READ_MEDIA_IMAGES").first
+                val video = grantOf(output, "android.permission.READ_MEDIA_VIDEO").first
+                if (visual == true && images == false && video == false) "selected" else "denied"
+            }
+        }
+    }
+
+    private fun grantOf(output: String, permission: String): Pair<Boolean?, String> {
+        val match = Regex(Regex.escape(permission) + ": granted=(true|false)(?:, flags=\\[([^\\]]*)\\])?")
+            .find(output) ?: return null to ""
+        return (match.groupValues[1] == "true") to match.groupValues.getOrNull(2).orEmpty()
+    }
 }
 
 object ProcessStoppedParser : OutputParser {
