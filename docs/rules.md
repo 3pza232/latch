@@ -16,6 +16,7 @@
 |---|---|---|
 | `appOp` | `cmd appops set [--uid] <pkg> <op> <mode>` | 修改系统操作权限；不改变运行时权限 |
 | `revokePermission` | `pm revoke --user 0 <pkg> <permission>` | 真正收回运行时权限，应用会看到权限被拒 |
+| `grantPermission` | `pm grant --user 0 <pkg> <permission>` | 强制授予运行时权限，会覆盖系统设置中的拒绝 |
 | `forceStop` | `am force-stop <pkg>` | 立即结束进程，之后可能自行重启 |
 | `setEnabled` | `pm enable` / `pm disable-user --user 0` | 启用或停用整个应用包 |
 
@@ -56,6 +57,17 @@ AppOps 与运行时权限是两套机制：把 `CAMERA` 的 AppOps 设为 `ignor
 
 这属于系统能力边界，可以保留规则表达意图，或删除规则获得干净状态。
 
+## 权限的授予与撤销
+
+权限层与 AppOps 层相互独立：
+
+- **授予权限**（`pm grant`）：强制把运行时权限设为允许，会覆盖系统设置里的拒绝；
+- **撤销权限**（`pm revoke`）：真正收回运行时权限，应用会看到权限被拒；
+- 对相机、麦克风等权限型 op，系统会根据权限状态自动调整 AppOps 的 uid 模式，
+  因此"允许相机"应使用 **授予权限**，而不是 AppOps `allow`。
+
+系统应用、系统 uid、`SYSTEM_FIXED` 权限可能拒绝 `pm grant` / `pm revoke`，失败会表现为漂移。
+
 ## 用 revokePermission 做防守
 
 `revokePermission` 与 AppOps 可以叠加，但两者不是替代关系：
@@ -63,7 +75,8 @@ AppOps 与运行时权限是两套机制：把 `CAMERA` 的 AppOps 设为 `ignor
 | 方式 | 效果 | 风险 |
 |---|---|---|
 | AppOps `ignore` | 拒绝某类系统操作，应用通常看不到权限变化 | 厂商可能拒绝放开/收紧；系统固定 op 无效 |
-| 撤销权限 | 真正移除运行时权限，应用会看到权限被拒 | 影响应用功能；系统/受保护应用会拒绝；更新或系统策略可能重新授予 |
+| `revokePermission` | 真正收回运行时权限，应用会看到权限被拒 | 影响应用功能；系统/受保护应用会拒绝；更新或系统策略可能重新授予 |
+| `grantPermission` | 强制授予运行时权限 | 覆盖用户的隐私选择；系统/受保护应用可能拒绝；请谨慎使用 |
 
 建议：
 

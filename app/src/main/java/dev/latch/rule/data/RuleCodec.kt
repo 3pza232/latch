@@ -77,6 +77,10 @@ object RuleCodec {
                 put("type", "revokePermission")
                 put("permission", capability.permission)
             }
+            is Capability.GrantPermission -> {
+                put("type", "grantPermission")
+                put("permission", capability.permission)
+            }
             Capability.ForceStop -> put("type", "forceStop")
             is Capability.SetEnabled -> {
                 put("type", "setEnabled")
@@ -92,6 +96,7 @@ object RuleCodec {
             scope = if (json.optString("scope") == "package") OpScope.PACKAGE else OpScope.UID,
         )
         "revokePermission" -> Capability.RevokePermission(json.getString("permission"))
+        "grantPermission" -> Capability.GrantPermission(json.getString("permission"))
         "forceStop" -> Capability.ForceStop
         "setEnabled" -> Capability.SetEnabled(json.optBoolean("enabled", false))
         else -> error("unknown capability: ${json.getString("type")}")

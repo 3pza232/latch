@@ -20,6 +20,8 @@ sealed interface Capability {
 
     data class RevokePermission(val permission: String) : Capability
 
+    data class GrantPermission(val permission: String) : Capability
+
     data object ForceStop : Capability
 
     data class SetEnabled(val enabled: Boolean) : Capability

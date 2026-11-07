@@ -17,7 +17,8 @@ object CapabilityCommands {
         require(PACKAGE_PATTERN.matches(targetPackage)) { "invalid package name: $targetPackage" }
         return when (capability) {
             is Capability.AppOp -> appOp(targetPackage, capability)
-            is Capability.RevokePermission -> revokePermission(targetPackage, capability.permission)
+            is Capability.RevokePermission -> permission(targetPackage, capability.permission, grant = false)
+            is Capability.GrantPermission -> permission(targetPackage, capability.permission, grant = true)
             Capability.ForceStop -> forceStop(targetPackage)
             is Capability.SetEnabled -> setEnabled(targetPackage, capability.enabled)
         }
@@ -34,12 +35,13 @@ object CapabilityCommands {
         )
     }
 
-    private fun revokePermission(pkg: String, permission: String): CommandSpec {
+    private fun permission(pkg: String, permission: String, grant: Boolean): CommandSpec {
         require(PERMISSION_PATTERN.matches(permission)) { "invalid permission: $permission" }
+        val action = if (grant) "grant" else "revoke"
         return CommandSpec(
-            applyCommand = "pm revoke --user 0 $pkg $permission",
+            applyCommand = "pm $action --user 0 $pkg $permission",
             verifyCommand = "dumpsys package $pkg | grep -F '$permission: granted' || true",
-            expected = "granted=false",
+            expected = if (grant) "granted=true" else "granted=false",
             parser = PermissionGrantParser(permission),
         )
     }

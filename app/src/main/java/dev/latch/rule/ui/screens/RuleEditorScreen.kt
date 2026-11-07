@@ -47,7 +47,7 @@ import dev.latch.rule.ui.components.AppPickerDialog
 import dev.latch.rule.ui.theme.LatchDimens
 import java.util.UUID
 
-private val CAPABILITY_TABS = listOf("AppOps", "撤销权限", "强制停止", "启停应用")
+private val CAPABILITY_TABS = listOf("AppOps", "权限", "强制停止", "启停应用")
 
 private val COMMON_PERMISSIONS = listOf(
     "android.permission.CAMERA",
@@ -86,7 +86,7 @@ fun RuleEditorScreen(
     var capabilityTab by rememberSaveable {
         mutableIntStateOf(
             when (initialCapability) {
-                is Capability.RevokePermission -> 1
+                is Capability.RevokePermission, is Capability.GrantPermission -> 1
                 Capability.ForceStop -> 2
                 is Capability.SetEnabled -> 3
                 else -> 0
@@ -97,7 +97,14 @@ fun RuleEditorScreen(
     var mode by rememberSaveable { mutableStateOf((initialCapability as? Capability.AppOp)?.mode ?: OpMode.IGNORE) }
     var scope by rememberSaveable { mutableStateOf((initialCapability as? Capability.AppOp)?.scope ?: OpScope.UID) }
     var permission by rememberSaveable {
-        mutableStateOf((initialCapability as? Capability.RevokePermission)?.permission ?: COMMON_PERMISSIONS.first())
+        mutableStateOf(
+            (initialCapability as? Capability.RevokePermission)?.permission
+                ?: (initialCapability as? Capability.GrantPermission)?.permission
+                ?: COMMON_PERMISSIONS.first(),
+        )
+    }
+    var permissionGranted by rememberSaveable {
+        mutableStateOf(initialCapability is Capability.GrantPermission)
     }
     var appEnabled by rememberSaveable {
         mutableStateOf((initialCapability as? Capability.SetEnabled)?.enabled ?: false)
@@ -112,7 +119,11 @@ fun RuleEditorScreen(
             return
         }
         val capability = when (capabilityTab) {
-            1 -> Capability.RevokePermission(permission)
+            1 -> if (permissionGranted) {
+                Capability.GrantPermission(permission)
+            } else {
+                Capability.RevokePermission(permission)
+            }
             2 -> Capability.ForceStop
             3 -> Capability.SetEnabled(appEnabled)
             else -> Capability.AppOp(op, mode, scope)
@@ -189,7 +200,7 @@ fun RuleEditorScreen(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     when (capabilityTab) {
-                        1 -> "真正收回运行时权限，应用会看到权限被拒；系统应用可能无效且影响功能。"
+                        1 -> "授予或撤销运行时权限；授予会覆盖系统设置里的拒绝。"
                         2 -> "立即结束进程，之后应用可能自行重启。"
                         3 -> "启用或停用整个应用包。"
                         else -> "按系统操作权限限制能力，不改变运行时权限。"
@@ -256,6 +267,27 @@ fun RuleEditorScreen(
                             value = permission,
                             options = COMMON_PERMISSIONS.map { it to it },
                             onSelect = { permission = it },
+                        )
+                    }
+                    Column {
+                        SectionLabel("动作")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = !permissionGranted,
+                                onClick = { permissionGranted = false },
+                                label = { Text("撤销权限") },
+                            )
+                            FilterChip(
+                                selected = permissionGranted,
+                                onClick = { permissionGranted = true },
+                                label = { Text("授予权限") },
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "撤销：应用看到权限被拒。授予：强制打开权限，会覆盖系统设置里的拒绝。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -381,6 +413,7 @@ private fun DropdownField(
 private fun defaultRuleName(capability: Capability): String = when (capability) {
     is Capability.AppOp -> OpLabels.label(capability.op)
     is Capability.RevokePermission -> capability.permission.substringAfterLast('.')
+    is Capability.GrantPermission -> capability.permission.substringAfterLast('.')
     Capability.ForceStop -> "强制停止"
     is Capability.SetEnabled -> if (capability.enabled) "启用应用" else "停用应用"
 }
