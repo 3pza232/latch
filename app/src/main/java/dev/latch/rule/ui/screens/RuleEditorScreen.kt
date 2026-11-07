@@ -261,15 +261,13 @@ fun RuleEditorScreen(
                             options = COMMON_PERMISSIONS.map { it to it },
                             onSelect = {
                                 permission = it
-                                val allowed = permissionModes(it)
-                                if (permissionMode !in allowed) permissionMode = allowed.first()
                             },
                         )
                     }
                     Column {
-                        SectionLabel("状态")
+                        SectionLabel("动作")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            permissionModes(permission).forEach { entry ->
+                            permissionModes().forEach { entry ->
                                 FilterChip(
                                     selected = permissionMode == entry,
                                     onClick = { permissionMode = entry },
@@ -279,7 +277,7 @@ fun RuleEditorScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "允许/仅使用时/禁止；位置支持仅大致，照片支持受限访问。",
+                            "允许：强制授予运行时权限；禁止：收回运行时权限。",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -404,25 +402,7 @@ private fun DropdownField(
     }
 }
 
-private fun permissionModes(permission: String): List<PermissionMode> = when {
-    permission.contains("LOCATION") -> listOf(
-        PermissionMode.ALLOW,
-        PermissionMode.WHILE_IN_USE,
-        PermissionMode.APPROXIMATE,
-        PermissionMode.DENY,
-    )
-    permission == "android.permission.READ_MEDIA_IMAGES" -> listOf(
-        PermissionMode.ALLOW,
-        PermissionMode.SELECTED,
-        PermissionMode.DENY,
-    )
-    permission == "android.permission.CAMERA" || permission == "android.permission.RECORD_AUDIO" -> listOf(
-        PermissionMode.ALLOW,
-        PermissionMode.WHILE_IN_USE,
-        PermissionMode.DENY,
-    )
-    else -> listOf(PermissionMode.ALLOW, PermissionMode.DENY)
-}
+private fun permissionModes(): List<PermissionMode> = listOf(PermissionMode.ALLOW, PermissionMode.DENY)
 
 private fun defaultRuleName(capability: Capability): String = when (capability) {
     is Capability.AppOp -> OpLabels.label(capability.op)

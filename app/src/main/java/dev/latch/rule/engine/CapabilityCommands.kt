@@ -39,45 +39,23 @@ object CapabilityCommands {
         val permission = capability.permission
         require(PERMISSION_PATTERN.matches(permission)) { "invalid permission: $permission" }
         val op = appOpFor(permission)
-        val verifyBase = when (capability.mode) {
-            PermissionMode.APPROXIMATE, PermissionMode.SELECTED -> "dumpsys package $pkg"
-            else -> if (op == null) {
-                "dumpsys package $pkg | grep -F '$permission: granted' || true"
-            } else {
-                "dumpsys package $pkg | grep -F '$permission: granted' || true; cmd appops get $pkg $op"
-            }
+        val verifyBase = if (op == null) {
+            "dumpsys package $pkg | grep -F '$permission: granted' || true"
+        } else {
+            "dumpsys package $pkg | grep -F '$permission: granted' || true; cmd appops get $pkg $op"
         }
-        val (apply, verifyExtra) = when (capability.mode) {
-            PermissionMode.ALLOW -> "pm grant --user 0 $pkg $permission" to ""
+        val apply = when (capability.mode) {
+            PermissionMode.ALLOW -> "pm grant --user 0 $pkg $permission"
             PermissionMode.DENY -> buildString {
                 append("pm revoke --user 0 $pkg $permission")
                 if (op != null) append("; cmd appops set --uid $pkg $op ignore")
-            } to ""
-            PermissionMode.WHILE_IN_USE -> buildString {
-                append("pm grant --user 0 $pkg $permission")
-                if (op != null) append("; cmd appops set --uid $pkg $op foreground")
-            } to ""
-            PermissionMode.APPROXIMATE -> buildString {
-                append("pm grant --user 0 $pkg android.permission.ACCESS_COARSE_LOCATION")
-                append("; pm revoke --user 0 $pkg android.permission.ACCESS_FINE_LOCATION")
-            } to ""
-            PermissionMode.SELECTED -> buildString {
-                append("pm grant --user 0 $pkg android.permission.READ_MEDIA_VISUAL_USER_SELECTED")
-                append("; pm revoke --user 0 $pkg android.permission.READ_MEDIA_IMAGES")
-                append("; pm revoke --user 0 $pkg android.permission.READ_MEDIA_VIDEO")
-                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_VISUAL_USER_SELECTED user-set")
-                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_IMAGES user-set")
-                append("; pm set-permission-flags --user 0 $pkg android.permission.READ_MEDIA_VIDEO user-set")
-                append("; cmd appops set --uid $pkg READ_MEDIA_VISUAL_USER_SELECTED ignore")
-                append("; cmd appops set --uid $pkg READ_MEDIA_IMAGES ignore")
-                append("; cmd appops set --uid $pkg READ_MEDIA_VIDEO ignore")
-            } to ""
+            }
         }
         return CommandSpec(
             applyCommand = apply,
-            verifyCommand = verifyBase + verifyExtra,
+            verifyCommand = verifyBase,
             expected = capability.mode.wire,
-            parser = PermissionStateParser(permission, capability.mode, op),
+            parser = PermissionStateParser(permission, capability.mode),
         )
     }
 

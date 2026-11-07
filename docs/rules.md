@@ -43,31 +43,22 @@ AppOps 与运行时权限是两套机制：权限型 AppOps 的模式由权限�
 
 系统 uid 运行的组件、共享 uid 的应用，用 `uid` 模式更可靠；普通应用优先用 `package`。
 
-## 权限状态
+## 权限
 
-`permissionState` 把运行时权限与 AppOps 组合成设置页可见的状态：
+`permissionState` 只保留两个动作：
 
-| 状态 | 命令组合 | 回读条件 |
+| 状态 | 行为 | 回读条件 |
 |---|---|---|
 | `allow` | `pm grant` | 权限 granted |
-| `foreground` | `pm grant` + `cmd appops set --uid <op> foreground` | granted 且对应 op 为 foreground |
 | `deny` | `pm revoke` + `cmd appops set --uid <op> ignore` | granted=false |
-| `approximate` | grant `ACCESS_COARSE_LOCATION` + revoke `ACCESS_FINE_LOCATION` | coarse=true、fine=false |
-| `selected` | grant `READ_MEDIA_VISUAL_USER_SELECTED` + revoke `READ_MEDIA_IMAGES`/`VIDEO` + 三个权限加 `user-set` 标志 | visual=true、images/video=false 且带 `USER_SET` |
 
-编辑器按权限类型给出可用状态：
-
-- 普通权限：允许 / 禁止
-- 相机、麦克风：额外提供"仅使用时允许"
-- 位置：额外提供"仅使用时允许"与"大致位置"
-- 照片：额外提供"受限访问"
+编辑器只提供「允许 / 禁止」两个选项。
 
 说明：
 
-- "每次询问"由系统权限控制器维护（`REVOKE_WHEN_REQUESTED + ONE_TIME`），
-  `ONE_TIME` 只能由系统 UI 产生，Shizuku 级工具无法设置，因此不在可选状态里；
-  需要时请到系统权限页手动选择；
 - 权限型操作的 AppOps 模式由系统权限状态推导，直接写 AppOps `allow` 通常无效；
+- "仅使用时""每次询问""受限访问"等属于系统权限控制器的状态，
+  其中"每次询问"需要 `ONE_TIME` 标志，Shizuku 级工具无法设置；
 - 应用未声明的权限（如某些系统组件的 `BODY_SENSORS`）无法授予，只能保持禁止。
 
 ## 为什么 AppOps 会显示"系统未接受"
