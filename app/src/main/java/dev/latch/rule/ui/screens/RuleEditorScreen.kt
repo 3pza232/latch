@@ -189,7 +189,7 @@ fun RuleEditorScreen(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     when (capabilityTab) {
-                        1 -> "真正收回运行时权限，应用会看到权限被拒。"
+                        1 -> "真正收回运行时权限，应用会看到权限被拒；系统应用可能无效且影响功能。"
                         2 -> "立即结束进程，之后应用可能自行重启。"
                         3 -> "启用或停用整个应用包。"
                         else -> "按系统操作权限限制能力，不改变运行时权限。"
@@ -222,7 +222,7 @@ fun RuleEditorScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "ignore = 拒绝；allow = 允许；default = 跟随系统或权限默认值",
+                            "ignore = 拒绝；allow = 允许；default = 清除限制，由系统决定实际值",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

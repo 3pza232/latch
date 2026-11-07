@@ -57,11 +57,13 @@ class RuleEngine(private val broker: PrivilegeBroker) {
             )
         }
         val actual = spec.parser.extract(result.stdout) ?: "unknown"
-        val state = if (actual == spec.expected) RuleState.APPLIED else RuleState.DRIFTED
+        // "default" means "clear the override"; the effective value is system-chosen.
+        val expected = if (spec.expected == "default") actual else spec.expected
+        val state = if (actual == expected) RuleState.APPLIED else RuleState.DRIFTED
         return RuleResult(
             ruleId = rule.id,
             state = state,
-            expected = spec.expected,
+            expected = expected,
             actual = actual,
         )
     }
