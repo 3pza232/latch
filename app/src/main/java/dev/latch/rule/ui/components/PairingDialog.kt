@@ -1,13 +1,14 @@
 package dev.latch.rule.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import dev.latch.rule.gateway.AgentGateway
@@ -27,53 +29,34 @@ fun PairingDialog(
     gateway: AgentGateway.State,
     onClose: () -> Unit,
 ) {
+    val address = "http://${gateway.address ?: "-"}:${gateway.port}"
+    val code = gateway.code.orEmpty()
+    val clipboard = LocalClipboardManager.current
+    val connectionInfo = "地址：$address\n配对码：$code"
+
     AlertDialog(
         onDismissRequest = onClose,
         shape = MaterialTheme.shapes.large,
         title = { Text("局域网连接") },
         text = {
-            val ticket = gateway.ticket
-            val clipboard = LocalClipboardManager.current
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    "在同一局域网内访问",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "http://${gateway.address ?: "-"}",
+            Column(modifier = Modifier.fillMaxWidth()) {
+                InfoBlock(
+                    label = "地址",
+                    value = address,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(Modifier.height(16.dp))
-                if (ticket != null) {
-                    Text(
-                        "把这串配对码交给 agent",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = ticket,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                    TextButton(onClick = { clipboard.setText(AnnotatedString(ticket)) }) {
-                        Text("复制配对串")
-                    }
-                    Text(
-                        "末位 ${ticket.take(3)} · 端口 ${ticket.substring(3, 8)} · " +
-                            "配对码 ${ticket.takeLast(6).chunked(3).joinToString(" ")}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    // Not on IPv4: the client needs the pieces separately.
-                    Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                        BigField(label = "端口", value = gateway.port.toString())
-                        BigField(
-                            label = "配对码",
-                            value = gateway.code.orEmpty().chunked(3).joinToString(" "),
-                        )
-                    }
+                InfoBlock(
+                    label = "配对码",
+                    value = code.chunked(3).joinToString(" "),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = { clipboard.setText(AnnotatedString(connectionInfo)) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("复制连接信息")
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -95,16 +78,17 @@ fun PairingDialog(
 }
 
 @Composable
-private fun BigField(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun InfoBlock(label: String, value: String, style: TextStyle) {
+    Column {
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(4.dp))
         Text(
             text = value,
-            style = MaterialTheme.typography.displaySmall,
+            style = style,
             fontFamily = FontFamily.Monospace,
         )
     }
