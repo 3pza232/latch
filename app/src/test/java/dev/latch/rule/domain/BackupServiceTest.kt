@@ -30,6 +30,7 @@ class BackupServiceTest {
 
     private lateinit var store: FileBackupStore
     private lateinit var ruleStore: InMemoryRuleStore
+    private val zone = ZoneId.of("Asia/Shanghai")
     private var now = 1_700_000_000_000L
     private lateinit var service: BackupService
 
@@ -38,7 +39,7 @@ class BackupServiceTest {
         store = FileBackupStore(File(folder.root, "backups"))
         ruleStore = InMemoryRuleStore()
         ruleStore.save(RuleDocument(groups = listOf(group("相机"))))
-        service = BackupService(store, ruleStore, clock = { now })
+        service = BackupService(store, ruleStore, clock = { now }, zone = zone)
     }
 
     @Test
@@ -146,7 +147,6 @@ class BackupServiceTest {
     }
 
     private fun nextDayAt(hour: Int, minute: Int): Long {
-        val zone = ZoneId.systemDefault()
         val nextDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().plusDays(1)
         return nextDate.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
     }

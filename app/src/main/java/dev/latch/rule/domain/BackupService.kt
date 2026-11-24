@@ -33,6 +33,7 @@ class BackupService(
     private val clock: () -> Long = System::currentTimeMillis,
     private val eventLog: EventLog = EventLog.Noop,
     private val autoCoalesceMs: Long = 30_000L,
+    private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
 
     suspend fun list(): List<BackupMeta> = withContext(Dispatchers.IO) { store.list() }
@@ -88,7 +89,6 @@ class BackupService(
      */
     suspend fun ensureBoundaries(): Int = withContext(Dispatchers.IO) {
         if (currentDocument() == null) return@withContext 0
-        val zone = ZoneId.systemDefault()
         val now = clock()
         var created = 0
 

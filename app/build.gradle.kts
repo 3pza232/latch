@@ -64,6 +64,13 @@ android {
         disable += "NewerVersionAvailable"
         disable += "ObsoleteSdkInt"
     }
+
+    testOptions {
+        unitTests.all {
+            // Keep time-dependent tests deterministic regardless of the machine.
+            it.systemProperty("user.timezone", "UTC")
+        }
+    }
 }
 
 kotlin {
