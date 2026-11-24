@@ -32,7 +32,13 @@ AppOps 与运行时权限是两套机制：权限型 AppOps 的模式由权限�
 
 `allow` 不等于"授予权限"：例如 `READ_SMS` 的 AppOps 设为 `allow`，仍要求应用持有 `READ_SMS` 权限。
 
-`default` 不是"锁定为 default"：应用后会回读系统实际值，并以实际值作为期望，不会误报漂移。
+`default` 表示清除该作用域的覆盖值。校验时只要该作用域没有显式覆盖即视为生效，
+界面会显示 `default(系统默认值)`（例如 `default(allow)`），便于确认系统的实际裁决。
+
+### 生效值如何回读
+
+AppOps 的回读遵循系统的解析顺序：UID 覆盖 → 包级覆盖 → 系统默认。规则的作用域只决定
+写入位置，不改变这里读到的生效值，因此不会因为值存放在另一层而误报漂移。
 
 ### 作用域
 
@@ -49,8 +55,11 @@ AppOps 与运行时权限是两套机制：权限型 AppOps 的模式由权限�
 
 | 状态 | 行为 | 回读条件 |
 |---|---|---|
-| `allow` | `pm grant` | 权限 granted |
+| `allow` | `pm grant` + 清除该 op 的 AppOps 覆盖 | 权限 granted，且 AppOps 不是 ignore |
 | `deny` | `pm revoke` + `cmd appops set --uid <op> ignore` | granted=false |
+
+授予权限不会自动清除此前 `deny` 写入的 AppOps `ignore`，因此 `allow` 会同时把该 op
+恢复为 `default`；否则界面显示已授予，应用实际仍被拒绝。
 
 编辑器只提供「允许 / 禁止」两个选项。
 

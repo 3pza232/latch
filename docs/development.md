@@ -16,11 +16,29 @@
 
 ```bash
 ./gradlew :app:assembleDebug      # 构建调试包
+./gradlew :app:testDebugUnitTest  # JVM 单元测试
 ./gradlew :app:lintDebug          # 静态检查
 ./gradlew :app:assembleRelease    # 构建发布包（需自行配置签名）
 ```
 
 构建产物位于 `app/build/outputs/apk/`。
+
+## 测试
+
+- 单元测试位于 `app/src/test/`，只依赖 JVM，不需要设备或模拟器；
+- 命令解析器、编解码、存储与引擎的测试使用真机采集的输出样本做表驱动；
+- `org.json` 在应用运行时来自 Android 平台，在 JVM 测试中则由
+  `testImplementation(libs.org.json)` 提供，因此测试依赖不能删除。
+
+## 真机验证
+
+release 包不可 `run-as`，升级验证必须使用同签名覆盖安装：
+
+1. 构建前先确认 `keystore/` 与 `local.properties` 中的签名配置与已安装包一致；
+2. `adb install -r app/build/outputs/apk/release/app-release.apk`；
+3. 启动后确认规则组与规则数量未变化，再执行校验。
+
+不要使用 `adb uninstall` 或 `pm clear`，那会删除规则数据。
 
 ## 调试版与发布版
 
