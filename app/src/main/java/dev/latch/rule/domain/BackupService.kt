@@ -100,7 +100,6 @@ class BackupService(
         }
         if (!dailyExists && snapshotNow(BackupReason.DAILY) != null) {
             created++
-            trim(BackupReason.DAILY, RetentionPolicy.MAX_DAILY)
             metas = store.list()
         }
 
@@ -112,8 +111,12 @@ class BackupService(
         }
         if (!hourlyCovered && snapshotNow(BackupReason.HOURLY) != null) {
             created++
-            trim(BackupReason.HOURLY, RetentionPolicy.MAX_HOURLY)
         }
+
+        // Advance both windows after any change: the newest 31 dailies cover the
+        // 30 day slot, and only the current hour's hourly snapshot is meaningful.
+        trim(BackupReason.DAILY, RetentionPolicy.MAX_DAILY)
+        pruneHourlyOutside(zone, now)
         created
     }
 
@@ -126,10 +129,35 @@ class BackupService(
             .forEach { store.delete(it.id) }
     }
 
-    /** Deletes the given snapshots; returns how many existed. */
+    /**
+     * Hourly snapshots from earlier hours are superseded by the current hour's
+     * boundary (or by today's daily snapshot that covers it). Removing them here
+     * also cleans the 23:00 snapshot as soon as the new day starts.
+     */
+    private fun pruneHourlyOutside(zone: ZoneId, now: Long) {
+        val currentHour = Instant.ofEpochMilli(now).atZone(zone).truncatedTo(ChronoUnit.HOURS)
+        store.list()
+            .filter { it.reason == BackupReason.HOURLY }
+            .filter {
+                Instant.ofEpochMilli(it.createdAt).atZone(zone)
+                    .truncatedTo(ChronoUnit.HOURS) != currentHour
+            }
+            .forEach { store.delete(it.id) }
+    }
+
+    /**
+     * Deletes the given snapshots; returns how many were removed.
+     * Boundary snapshots ([BackupReason.HOURLY] and [BackupReason.DAILY]) are the
+     * restore points and cannot be deleted manually.
+     */
     suspend fun delete(ids: Set<String>): Int = withContext(Dispatchers.IO) {
-        val removed = ids.count { id -> store.load(id) != null }
-        ids.forEach(store::delete)
+        val targets = ids
+            .mapNotNull { id -> store.load(id) }
+            .filterNot {
+                it.meta.reason == BackupReason.HOURLY || it.meta.reason == BackupReason.DAILY
+            }
+        targets.forEach { store.delete(it.meta.id) }
+        val removed = targets.size
         if (removed > 0) {
             eventLog.record(
                 LatchEvent(

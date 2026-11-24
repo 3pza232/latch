@@ -133,6 +133,12 @@ fun BackupsScreen(
         points.sevenDays,
         points.thirtyDays,
     )
+    // Boundary snapshots are the restore points and are not listed or deletable here.
+    val changeSnapshots = remember(backups) {
+        backups.filter {
+            it.reason != BackupReason.HOURLY && it.reason != BackupReason.DAILY
+        }
+    }
 
     LaunchedEffect(target?.id, scopeAll, selectedGroupIds) {
         val meta = target ?: return@LaunchedEffect
@@ -239,10 +245,19 @@ fun BackupsScreen(
                 }
                 item {
                     Spacer(Modifier.height(20.dp))
-                    SectionTitle(stringResource(R.string.backups_all))
+                    SectionTitle(stringResource(R.string.backups_changes))
                     Spacer(Modifier.height(8.dp))
                 }
-                items(backups, key = { it.id }) { meta ->
+                if (changeSnapshots.isEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.backups_changes_empty),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                items(changeSnapshots, key = { it.id }) { meta ->
                     SnapshotRow(
                         meta = meta,
                         selected = meta.id in selection,

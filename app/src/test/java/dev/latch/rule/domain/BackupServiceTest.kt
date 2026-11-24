@@ -20,6 +20,8 @@ import org.junit.Before
 import org.junit.Rule as JvmRule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.time.Instant
+import java.time.ZoneId
 
 class BackupServiceTest {
 
@@ -101,6 +103,52 @@ class BackupServiceTest {
 
         assertEquals(1, store.list().count { it.reason == BackupReason.DAILY })
         assertEquals(1, store.list().count { it.reason == BackupReason.HOURLY })
+    }
+
+    @Test
+    fun `a new day creates the daily boundary and drops the previous hourly`() = runBlocking {
+        service.ensureBoundaries()
+        now += 60 * 60_000
+        service.ensureBoundaries()
+        assertEquals(1, store.list().count { it.reason == BackupReason.HOURLY })
+
+        now = nextDayAt(0, 5)
+        service.ensureBoundaries()
+
+        assertEquals(0, store.list().count { it.reason == BackupReason.HOURLY })
+        assertEquals(2, store.list().count { it.reason == BackupReason.DAILY })
+    }
+
+    @Test
+    fun `daily boundaries advance and the oldest is dropped after 32 days`() = runBlocking {
+        repeat(33) {
+            service.ensureBoundaries()
+            now = nextDayAt(10, 5)
+        }
+
+        assertEquals(31, store.list().count { it.reason == BackupReason.DAILY })
+    }
+
+    @Test
+    fun `boundary snapshots cannot be deleted manually`() = runBlocking {
+        service.ensureBoundaries()
+        ruleStore.save(RuleDocument(groups = listOf(group("通知"))))
+        now += 10 * 60_000
+        service.onDocumentChanged()
+        val daily = store.list().first { it.reason == BackupReason.DAILY }
+        val change = store.list().first { it.reason == BackupReason.AUTO_CHANGE }
+
+        val removed = service.delete(setOf(daily.id, change.id))
+
+        assertEquals(1, removed)
+        assertTrue(store.list().any { it.id == daily.id })
+        assertTrue(store.list().none { it.id == change.id })
+    }
+
+    private fun nextDayAt(hour: Int, minute: Int): Long {
+        val zone = ZoneId.systemDefault()
+        val nextDate = Instant.ofEpochMilli(now).atZone(zone).toLocalDate().plusDays(1)
+        return nextDate.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
     }
 
     @Test

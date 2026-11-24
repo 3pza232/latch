@@ -239,7 +239,8 @@
     <string name="backups_title">备份与恢复</string>
     <string name="backups_create">立即备份</string>
     <string name="backups_restore_points">恢复点</string>
-    <string name="backups_all">全部快照</string>
+    <string name="backups_changes">变更快照</string>
+    <string name="backups_changes_empty">暂无变更快照</string>
     <string name="backups_ago_hour">1 小时前</string>
     <string name="backups_ago_day">1 天前</string>
     <string name="backups_ago_3days">3 天前</string>
