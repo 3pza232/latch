@@ -268,6 +268,9 @@
     <string name="backups_apply_now">恢复后立即应用</string>
     <string name="backups_apply_hint">默认只恢复配置，不改变系统状态</string>
     <string name="backups_export">导出快照</string>
+    <string name="backups_selected">已选择 %1$d 个</string>
+    <string name="backups_delete_title">删除 %1$d 个快照？</string>
+    <string name="backups_delete_body">删除后不可撤销；规则与系统状态不受影响。</string>
     <string name="change_added">新增</string>
     <string name="change_replaced">替换</string>
     <string name="change_removed">删除</string>
@@ -290,6 +293,7 @@
     <string name="stats_repair_rate">修复成功率</string>
     <string name="stats_rate_sub">成功 / (成功 + 失败)</string>
     <string name="stats_drifted">漂移检出</string>
+    <string name="stats_scope">统计包含手动校验、定期自检与自动修复</string>
     <string name="stats_last_7_days">最近 7 天</string>
     <string name="stats_no_records">最近 7 天没有记录</string>
     <string name="stats_legend_ok">运行正常</string>
@@ -347,6 +351,7 @@
     <string name="msg_logs_exported">日志已导出</string>
     <string name="msg_no_logs">没有可导出的日志</string>
     <string name="msg_backup_exported">快照已导出</string>
+    <string name="msg_backups_deleted">已删除 %1$d 个快照</string>
     <string name="msg_logs_cleared">日志已清空</string>
     <string name="msg_backup_created">已创建备份</string>
     <string name="msg_nothing_to_backup">没有可备份的规则</string>

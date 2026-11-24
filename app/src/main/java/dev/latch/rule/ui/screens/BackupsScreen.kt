@@ -1,6 +1,10 @@
 package dev.latch.rule.ui.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -45,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -93,9 +100,15 @@ fun BackupsScreen(
     onClearPreview: () -> Unit,
     onRestore: (String, Set<String>?, Boolean) -> Unit,
     onExport: (String) -> Unit,
+    onDelete: (Set<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var target by remember { mutableStateOf<BackupMeta?>(null) }
+    var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val selecting = selection.isNotEmpty()
+
+    BackHandler(enabled = selecting) { selection = emptySet() }
     var scopeAll by remember { mutableStateOf(true) }
     var selectedGroupIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var applyAfter by remember { mutableStateOf(false) }
@@ -123,18 +136,53 @@ fun BackupsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.backups_title)) },
+                title = {
+                    Text(
+                        if (selecting) {
+                            stringResource(R.string.backups_selected, selection.size)
+                        } else {
+                            stringResource(R.string.backups_title)
+                        },
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+                    if (selecting) {
+                        IconButton(onClick = { selection = emptySet() }) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.home_clear_selection),
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.common_back),
+                            )
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
-                    }
-                    IconButton(onClick = onCreate) {
-                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.backups_create))
+                    if (selecting) {
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.home_delete_selected),
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onRefresh) {
+                            Icon(
+                                Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.common_refresh),
+                            )
+                        }
+                        IconButton(onClick = onCreate) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = stringResource(R.string.backups_create),
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -188,7 +236,15 @@ fun BackupsScreen(
                 items(backups, key = { it.id }) { meta ->
                     SnapshotRow(
                         meta = meta,
-                        onClick = { openRestore(meta) },
+                        selected = meta.id in selection,
+                        onClick = {
+                            if (selecting) {
+                                selection = selection.toggle(meta.id)
+                            } else {
+                                openRestore(meta)
+                            }
+                        },
+                        onLongClick = { selection = selection.toggle(meta.id) },
                         onExport = { onExport(meta.id) },
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -222,7 +278,31 @@ fun BackupsScreen(
             onDismiss = ::closeRestore,
         )
     }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.backups_delete_title, selection.size)) },
+            text = { Text(stringResource(R.string.backups_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val ids = selection
+                    confirmDelete = false
+                    selection = emptySet()
+                    onDelete(ids)
+                }) { Text(stringResource(R.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
 }
+
+private fun Set<String>.toggle(id: String): Set<String> =
+    if (id in this) this - id else this + id
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -393,12 +473,22 @@ private fun RestorePointRow(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SnapshotRow(meta: BackupMeta, onClick: () -> Unit, onExport: () -> Unit) {
+private fun SnapshotRow(
+    meta: BackupMeta,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onExport: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

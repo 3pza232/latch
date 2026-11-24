@@ -66,6 +66,7 @@ private enum class LogFilter(val labelRes: Int) {
     ISSUES(R.string.logs_filter_issues),
     APPLY(R.string.logs_filter_apply),
     VERIFY(R.string.logs_filter_verify),
+    REPAIR(R.string.action_repair),
     GATEWAY(R.string.logs_filter_gateway),
 }
 
@@ -316,5 +317,6 @@ private fun LogFilter.matches(event: LatchEvent): Boolean = when (this) {
     LogFilter.ISSUES -> event.level != EventLevel.INFO
     LogFilter.APPLY -> event.action == EventAction.APPLY
     LogFilter.VERIFY -> event.action == EventAction.VERIFY
+    LogFilter.REPAIR -> event.action == EventAction.REPAIR
     LogFilter.GATEWAY -> event.source == EventSource.GATEWAY
 }

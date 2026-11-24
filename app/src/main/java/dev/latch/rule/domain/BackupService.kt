@@ -83,6 +83,24 @@ class BackupService(
         snapshotNow(BackupReason.AUTO_CHANGE)
     }
 
+    /** Deletes the given snapshots; returns how many existed. */
+    suspend fun delete(ids: Set<String>): Int = withContext(Dispatchers.IO) {
+        val removed = ids.count { id -> store.load(id) != null }
+        ids.forEach(store::delete)
+        if (removed > 0) {
+            eventLog.record(
+                LatchEvent(
+                    level = EventLevel.INFO,
+                    source = EventSource.SYSTEM,
+                    action = EventAction.ROTATE,
+                    outcome = "deleted",
+                    detail = "backups=$removed",
+                ),
+            )
+        }
+        removed
+    }
+
     suspend fun prune(): Int = withContext(Dispatchers.IO) {
         val metas = store.list()
         val doomed = RetentionPolicy.toDelete(metas, clock())

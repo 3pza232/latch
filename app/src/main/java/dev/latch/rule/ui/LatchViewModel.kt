@@ -550,6 +550,14 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    fun deleteBackups(snapshotIds: Set<String>) {
+        viewModelScope.launch {
+            val removed = container.backupService.delete(snapshotIds)
+            _uiState.update { it.copy(message = text(R.string.msg_backups_deleted, removed)) }
+            loadBackups()
+        }
+    }
+
     fun previewRestore(snapshotId: String, groupIds: Set<String>?) {
         viewModelScope.launch {
             val plan = container.restoreService.preview(snapshotId, scopeOf(groupIds))

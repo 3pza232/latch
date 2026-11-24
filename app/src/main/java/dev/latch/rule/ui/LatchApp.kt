@@ -208,6 +208,7 @@ fun LatchApp(
                     pendingBackupExport = snapshotId
                     backupExportLauncher.launch("latch-backup-$snapshotId.json")
                 },
+                onDelete = viewModel::deleteBackups,
             )
 
             statsOpen -> StatsScreen(

@@ -164,6 +164,12 @@ fun StatsScreen(
                         )
                     }
 
+                    Text(
+                        stringResource(R.string.stats_scope),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
                     SectionTitle(stringResource(R.string.stats_last_7_days))
                     WeekChart(stats.recentDays)
 
