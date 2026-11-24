@@ -19,8 +19,8 @@ android {
         applicationId = "dev.latch.rule"
         minSdk = 26
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.2.0"
+        versionCode = 20
+        versionName = "1.3.0"
     }
 
     signingConfigs {
@@ -92,4 +92,10 @@ dependencies {
     implementation(libs.shizuku.provider)
     implementation(libs.androidx.work.runtime)
     implementation(libs.nanohttpd)
+
+    // Local JVM tests run against the real org.json; the mockable android.jar only
+    // ships throwing stubs for it, so the library must come first on the test classpath.
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.org.json)
 }

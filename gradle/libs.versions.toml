@@ -1,6 +1,8 @@
 [versions]
 agp = "9.0.1"
 kotlin = "2.3.20"
+junit = "4.13.2"
+orgJson = "20240303"
 coreKtx = "1.18.0"
 lifecycle = "2.10.0"
 activityCompose = "1.13.0"
@@ -23,6 +25,9 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+junit = { module = "junit:junit", version.ref = "junit" }
+org-json = { module = "org.json:json", version.ref = "orgJson" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
 shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
