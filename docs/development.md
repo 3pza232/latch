@@ -29,6 +29,14 @@
 `testDebugUnitTest`、`lintDebug`、`assembleDebug`，并上传 lint 与测试报告。
 本地可用同一组命令复现。
 
+## 界面约定
+
+- 用户可见文案统一放在 `res/values/strings.xml`；领域层的诊断信息与能力目录
+  （如 `OpLabels`）保留为代码常量，便于日志与协议稳定识别。
+- 页面滚动位置、筛选条件等用 `rememberSaveable` 保存；导航只维护一个
+  `SaveableStateHolder`，新增页面时在 `LatchApp.kt` 的 `keysOnStack` 中登记即可。
+- 列表页优先使用 `LazyColumn` 的默认状态；需要自定义时用 `rememberLazyListState()`。
+
 ## 测试
 
 - 单元测试位于 `app/src/test/`，只依赖 JVM，不需要设备或模拟器；
