@@ -34,6 +34,7 @@
 | POST | `/pair` | 用配对码换 token |
 | GET | `/api/state` | 网关与 Shizuku 状态、分组计数、汇总 |
 | GET | `/api/logs?limit=200` | 最近事件（只读、已脱敏） |
+| GET | `/api/stats` | 运行统计：轮次、活跃天数、最近 7 天 |
 | GET | `/api/backups` | 规则快照列表（新到旧） |
 | POST | `/api/backups` | 立即创建手动快照 |
 | POST | `/api/backups/{id}/restore` | 恢复快照（可限定规则组） |

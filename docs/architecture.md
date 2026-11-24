@@ -6,6 +6,7 @@
 core/model     领域模型：Rule / Capability / RuleGroup / RuleState
 core/result    错误分类：LatchError / ShellErrorClassifier
 core/log       事件模型：LatchEvent / EventLog
+core/stats     统计聚合：按天计数与摘要（纯函数）
 privilege      特权通道：PrivilegeBroker 与 Shizuku 实现
 engine         命令映射、输出解析、应用与校验、结果到事件的映射
 domain         RuleCoordinator：规则状态中枢
