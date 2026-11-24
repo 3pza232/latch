@@ -23,6 +23,7 @@ Latch 是一个基于 [Shizuku](https://shizuku.rikka.app/) 的本地 Android �
 - 冲突检测：同应用同能力声明不同值时弹窗确认；被覆盖规则显示"被 X 覆盖"，
   覆盖解除后自动恢复
 - 长按规则组或规则进入多选，可批量删除
+- 危险操作保护：不会停用或强停桌面、SystemUI、Shizuku 与 Latch 自身
 - 打开应用自动校验、开机自检、周期性后台校验、漂移自动修复、修复失败通知
 - 可选择从最近任务列表中隐藏本应用
 - 规则 JSON 导入/导出，覆盖安装保留
@@ -53,6 +54,8 @@ Latch 是一个基于 [Shizuku](https://shizuku.rikka.app/) 的本地 Android �
 - [规则与数据格式](docs/rules.md)
 - [局域网接口与 CLI](docs/agent.md)
 - [开发与构建](docs/development.md)
+- [已知限制](docs/limitations.md)
+- [变更记录](CHANGELOG.md)
 
 ## 技术栈
 

@@ -23,6 +23,12 @@
 
 构建产物位于 `app/build/outputs/apk/`。
 
+## 持续集成
+
+`.github/workflows/android.yml` 在推送与合并请求时执行
+`testDebugUnitTest`、`lintDebug`、`assembleDebug`，并上传 lint 与测试报告。
+本地可用同一组命令复现。
+
 ## 测试
 
 - 单元测试位于 `app/src/test/`，只依赖 JVM，不需要设备或模拟器；
