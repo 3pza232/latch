@@ -3,7 +3,9 @@ package dev.latch.rule.engine
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.result.LatchError
+import dev.latch.rule.core.result.LatchErrorCode
 import dev.latch.rule.privilege.PrivilegeBroker
+import dev.latch.rule.privilege.ShellResult
 
 data class RuleResult(
     val ruleId: String,
@@ -24,19 +26,28 @@ class RuleEngine(private val broker: PrivilegeBroker) {
         val spec = runCatching { CapabilityCommands.of(rule.targetPackage, rule.capability) }
             .getOrElse { return invalid(rule, it.message.orEmpty()) }
 
-        val applied = broker.execute(spec.applyCommand)
-        if (!applied.ok) {
-            return RuleResult(
-                ruleId = rule.id,
-                state = RuleState.FAILED,
-                expected = spec.expected,
-                actual = "-",
-                error = LatchError.fromShell(applied),
-            )
+        // Every step runs even if an earlier one failed: a partly applied capability is
+        // still closer to the intent than stopping halfway, and verification decides.
+        var failedStep: Pair<Int, ShellResult>? = null
+        spec.applyCommands.forEachIndexed { index, command ->
+            val result = broker.execute(command)
+            if (!result.ok && failedStep == null) failedStep = (index + 1) to result
         }
-        return verifyAgainst(rule, spec).let { result ->
-            if (result.state == RuleState.DRIFTED) result.copy(message = NOT_ENFORCED_HINT) else result
-        }
+
+        val verified = verifyAgainst(rule, spec)
+        if (verified.state == RuleState.APPLIED) return verified
+
+        val failure = failedStep
+            ?: return if (verified.state == RuleState.DRIFTED) {
+                verified.copy(message = NOT_ENFORCED_HINT)
+            } else {
+                verified
+            }
+        val error = LatchError.fromShell(failure.second)
+        return verified.copy(
+            state = RuleState.FAILED,
+            error = error.copy(message = "步骤 ${failure.first} 失败：${error.message}"),
+        )
     }
 
     suspend fun verify(rule: Rule): RuleResult {
@@ -56,16 +67,32 @@ class RuleEngine(private val broker: PrivilegeBroker) {
                 error = LatchError.fromShell(result),
             )
         }
-        val actual = spec.parser.extract(result.stdout) ?: "unknown"
-        // "default" means "clear the override"; the effective value is system-chosen.
-        val expected = if (spec.expected == "default") actual else spec.expected
-        val state = if (actual == expected) RuleState.APPLIED else RuleState.DRIFTED
+        val actual = spec.parser.extract(result.stdout)
+            ?: return RuleResult(
+                ruleId = rule.id,
+                state = RuleState.FAILED,
+                expected = spec.expected,
+                actual = UNKNOWN,
+                error = LatchError(LatchErrorCode.PARSE_FAILED, "无法解析系统回读结果"),
+            )
+        val state = if (matches(spec.expected, actual)) RuleState.APPLIED else RuleState.DRIFTED
         return RuleResult(
             ruleId = rule.id,
             state = state,
-            expected = expected,
+            expected = spec.expected,
             actual = actual,
         )
+    }
+
+    /**
+     * A `default` rule clears the override, so any `default(...)` reading satisfies it.
+     * For explicit modes, the same reading also satisfies the rule because the effective
+     * value already matches even though the override lives at the system-default layer.
+     */
+    private fun matches(expected: String, actual: String): Boolean = when {
+        expected == "default" -> actual.startsWith("default")
+        actual == expected -> true
+        else -> actual == "default($expected)"
     }
 
     private fun invalid(rule: Rule, message: String) = RuleResult(
@@ -78,5 +105,6 @@ class RuleEngine(private val broker: PrivilegeBroker) {
 
     private companion object {
         const val NOT_ENFORCED_HINT = "已下发但系统未接受：该应用或该操作可能受系统保护"
+        const val UNKNOWN = "unknown"
     }
 }

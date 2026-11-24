@@ -39,23 +39,30 @@ object CapabilityCommands {
         val permission = capability.permission
         require(PERMISSION_PATTERN.matches(permission)) { "invalid permission: $permission" }
         val op = appOpFor(permission)
-        val verifyBase = if (op == null) {
-            "dumpsys package $pkg | grep -F '$permission: granted' || true"
-        } else {
-            "dumpsys package $pkg | grep -F '$permission: granted' || true; cmd appops get $pkg $op"
+        // `check-permission` is the precise per-user answer but is not available on older
+        // releases, so the runtime-permission line is kept as a fallback in the same call.
+        val verify = buildString {
+            append("dumpsys package check-permission $permission $pkg 0; ")
+            append("dumpsys package $pkg | grep -F '$permission: granted' || true")
+            if (op != null) append("; cmd appops get --uid $pkg $op")
         }
+        // Granting only changes the runtime permission; an AppOps override written by an
+        // earlier deny rule survives it and keeps the app blocked, so clear it here.
         val apply = when (capability.mode) {
-            PermissionMode.ALLOW -> "pm grant --user 0 $pkg $permission"
-            PermissionMode.DENY -> buildString {
-                append("pm revoke --user 0 $pkg $permission")
-                if (op != null) append("; cmd appops set --uid $pkg $op ignore")
+            PermissionMode.ALLOW -> buildList {
+                add("pm grant --user 0 $pkg $permission")
+                if (op != null) add("cmd appops set --uid $pkg $op default")
+            }
+            PermissionMode.DENY -> buildList {
+                add("pm revoke --user 0 $pkg $permission")
+                if (op != null) add("cmd appops set --uid $pkg $op ignore")
             }
         }
         return CommandSpec(
-            applyCommand = apply,
-            verifyCommand = verifyBase,
+            applyCommands = apply,
+            verifyCommand = verify,
             expected = capability.mode.wire,
-            parser = PermissionStateParser(permission, capability.mode),
+            parser = PermissionStateParser(permission, op, capability.mode),
         )
     }
 
@@ -90,15 +97,23 @@ object CapabilityCommands {
 
     private fun forceStop(pkg: String): CommandSpec = CommandSpec(
         applyCommand = "am force-stop $pkg",
-        verifyCommand = "ps -A -o NAME | grep -F '$pkg' || true",
+        verifyCommand = "ps -A -o PID,NAME,ARGS",
         expected = "stopped",
-        parser = ProcessStoppedParser,
+        parser = ProcessStoppedParser(pkg),
     )
 
+    /**
+     * `dumpsys package` reports `enabled=0` for a normally enabled app, so the numeric
+     * field cannot distinguish enabled from disabled. The package lists can.
+     */
     private fun setEnabled(pkg: String, enabled: Boolean): CommandSpec = CommandSpec(
         applyCommand = if (enabled) "pm enable $pkg" else "pm disable-user --user 0 $pkg",
-        verifyCommand = "dumpsys package $pkg | grep -E 'User 0:.*enabled=' || true",
+        verifyCommand = buildString {
+            append("pm list packages --user 0 -e $pkg; ")
+            append("echo ${EnabledStateParser.SECTION_SEPARATOR}; ")
+            append("pm list packages --user 0 -d $pkg")
+        },
         expected = if (enabled) "enabled" else "disabled",
-        parser = EnabledStateParser,
+        parser = EnabledStateParser(pkg),
     )
 }
