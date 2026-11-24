@@ -17,6 +17,10 @@ jobs:
           java-version: "17"
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The default package list still includes "tools", which no longer
+          # exists in the SDK repository. Install exactly what the build needs.
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Test, lint and build
