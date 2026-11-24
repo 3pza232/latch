@@ -40,7 +40,7 @@
 | POST | `/api/backups/{id}/restore` | 恢复快照（可限定规则组） |
 | GET | `/api/rules` | 完整规则文档 |
 | POST | `/api/import` | 用完整规则文档导入/合并规则 |
-| POST | `/api/rules` | 新增或更新规则（保存后立即应用并返回结果） |
+| POST | `/api/rules` | 新增或更新规则；冲突时返回 409 |
 | POST | `/api/rules/{id}/enabled` | 启用/停用规则 |
 | DELETE | `/api/rules/{id}` | 删除规则 |
 | POST | `/api/groups/{id}/enabled` | 启用/停用规则组（启用时自动应用） |
@@ -57,6 +57,23 @@ Authorization: Bearer <token>
 POST /api/rules
 {"groupId":"<groupId>","rule":{"name":"允许相机","targetPackage":"com.example.app","enabled":true,"capability":{"type":"permissionState","permission":"android.permission.CAMERA","mode":"allow"}}}
 ```
+
+## 冲突处理
+
+`POST /api/rules` 保存的规则与现有规则冲突时返回 **409**，并列出冲突项：
+
+```json
+{"ok":false,"error":"rule conflicts with existing rules","conflicts":[
+  {"ruleId":"rule-a","ruleName":"禁止相机","groupId":"g","groupName":"组","reason":"AppOps CAMERA"}
+]}
+```
+
+在请求体中加入 `resolve` 后重试：
+
+- `"resolve":"overwrite"`：新规则覆盖现有规则；
+- `"resolve":"keep"`：保留现有规则，新规则保存为被覆盖。
+
+`GET /api/state` 的组与汇总中包含 `suppressed` 计数。
 
 ## 日志接口
 
