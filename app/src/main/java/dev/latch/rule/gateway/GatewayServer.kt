@@ -1,9 +1,14 @@
 package dev.latch.rule.gateway
 
+import dev.latch.rule.core.backup.BackupMeta
+import dev.latch.rule.core.backup.BackupReason
+import dev.latch.rule.core.backup.RestoreScope
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.domain.BackupService
+import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.privilege.PrivilegeBroker
@@ -20,6 +25,8 @@ class GatewayServer(
     private val privilege: PrivilegeBroker,
     private val versionName: String,
     private val eventLog: EventLog,
+    private val backupService: BackupService,
+    private val restoreService: RestoreService,
 ) : NanoHTTPD(EPHEMERAL_PORT) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -34,6 +41,10 @@ class GatewayServer(
                 (uri == "/api" || uri == "/api/docs") && method == Method.GET -> apiDocs()
                 uri == "/api/state" && method == Method.GET -> state()
                 uri == "/api/logs" && method == Method.GET -> logs(session)
+                uri == "/api/backups" && method == Method.GET -> backups()
+                uri == "/api/backups" && method == Method.POST -> createBackup()
+                uri.startsWith("/api/backups/") && uri.endsWith("/restore") &&
+                    method == Method.POST -> restoreBackup(session, uri)
                 uri == "/api/rules" && method == Method.GET -> rules()
                 uri == "/api/import" && method == Method.POST -> importRules(session)
                 uri == "/api/rules" && method == Method.POST -> upsertRule(session)
@@ -90,6 +101,17 @@ class GatewayServer(
                 JSONArray()
                     .put(endpoint("GET", "/api/state", null, "Gateway/Shizuku status, group counts and summary"))
                     .put(endpoint("GET", "/api/logs?limit=200", null, "Recent sanitized events (no commands or raw output)"))
+                    .put(endpoint("GET", "/api/backups", null, "List rule snapshots, newest first"))
+                    .put(endpoint("POST", "/api/backups", null, "Create a manual snapshot now"))
+                    .put(
+                        endpoint(
+                            "POST",
+                            "/api/backups/{id}/restore",
+                            JSONObject().put("groups", "<group ids, omit for the whole document>")
+                                .put("apply", false),
+                            "Restore a snapshot; configuration only unless apply is true",
+                        ),
+                    )
                     .put(endpoint("GET", "/api/rules", null, "Full rule document (same shape as exported JSON)"))
                     .put(endpoint("POST", "/api/import", JSONObject().put("version", 1).put("groups", "<rule groups>"), "Replace/merge rules from a full rule document"))
                     .put(
@@ -224,6 +246,63 @@ class GatewayServer(
         .put("message", event.message)
         .put("detail", event.detail)
         .put("durationMs", event.durationMs)
+
+    private fun backups(): Response {
+        val metas = runBlocking { backupService.list() }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("count", metas.size)
+                .put("backups", JSONArray().apply { metas.forEach { put(metaJson(it)) } }),
+        )
+    }
+
+    private fun createBackup(): Response {
+        val meta = runBlocking { backupService.snapshotNow(BackupReason.MANUAL) }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("created", meta != null)
+                .put("backup", meta?.let(::metaJson)),
+        )
+    }
+
+    private fun restoreBackup(session: IHTTPSession, uri: String): Response {
+        val id = uri.removePrefix("/api/backups/").removeSuffix("/restore").trim('/')
+        if (id.isBlank()) return json(Response.Status.BAD_REQUEST, error("missing backup id"))
+        val body = bodyJson(session)
+        val groups = body?.optJSONArray("groups")
+        val scope = if (groups == null) {
+            RestoreScope.Full
+        } else {
+            RestoreScope.Selected(
+                (0 until groups.length()).map { groups.getString(it) }.toSet(),
+            )
+        }
+        val apply = body?.optBoolean("apply", false) ?: false
+        val plan = runBlocking { restoreService.restore(id, scope, apply, EventSource.GATEWAY) }
+            ?: return json(Response.Status.NOT_FOUND, error("unknown backup"))
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("added", plan.added)
+                .put("replaced", plan.replaced)
+                .put("removed", plan.removed)
+                .put("groups", plan.groups.size)
+                .put("rules", plan.ruleCount)
+                .put("applied", apply),
+        )
+    }
+
+    private fun metaJson(meta: BackupMeta) = JSONObject()
+        .put("id", meta.id)
+        .put("createdAt", meta.createdAt)
+        .put("reason", meta.reason.wire)
+        .put("groups", meta.groups)
+        .put("rules", meta.rules)
 
     private fun rules(): Response {
         val text = RuleCodec.encode(coordinator.snapshot.value.groups)

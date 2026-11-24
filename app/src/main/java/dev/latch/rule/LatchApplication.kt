@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.ContentResolver
 import android.content.Context
 import dev.latch.rule.core.log.EventLog
+import dev.latch.rule.data.BackupStore
+import dev.latch.rule.data.FileBackupStore
 import dev.latch.rule.data.FileEventLog
 import dev.latch.rule.data.FileResultStore
 import dev.latch.rule.data.FileRuleStore
@@ -13,6 +15,8 @@ import dev.latch.rule.data.PreferencesSettingsStore
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.SettingsStore
+import dev.latch.rule.domain.BackupService
+import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.engine.RuleEngine
 import dev.latch.rule.engine.VerifyService
@@ -50,16 +54,30 @@ class AppContainer(context: Context) {
     val ruleStore: RuleStore = FileRuleStore(appContext)
     val resultStore: ResultStore = FileResultStore(appContext)
     val settingsStore: SettingsStore = PreferencesSettingsStore(appContext)
+    val backupStore: BackupStore = FileBackupStore(File(appContext.filesDir, BACKUP_DIRECTORY))
+    val backupService: BackupService = BackupService(backupStore, ruleStore, eventLog = eventLog)
     val verifyService: VerifyService = VerifyService(ruleStore, resultStore, ruleEngine, eventLog)
     val ruleCoordinator: RuleCoordinator =
-        RuleCoordinator(ruleStore, resultStore, ruleEngine, verifyService, eventLog)
-    val agentGateway: AgentGateway = AgentGateway(appContext, ruleCoordinator, privilegeBroker, eventLog)
+        RuleCoordinator(ruleStore, resultStore, ruleEngine, verifyService, eventLog, backupService)
+    val restoreService: RestoreService = RestoreService(backupService, ruleCoordinator, eventLog)
+    val agentGateway: AgentGateway = AgentGateway(
+        appContext,
+        ruleCoordinator,
+        privilegeBroker,
+        eventLog,
+        backupService,
+        restoreService,
+    )
     val driftNotifier: DriftNotifier = DriftNotifier(appContext)
     val installedApps: InstalledApps = InstalledApps(appContext)
     val contentResolver: ContentResolver get() = appContext.contentResolver
 
     init {
         pruneLogs(settingsStore.load().logRetentionDays)
+        appScope.launch {
+            backupService.snapshotOnStartup()
+            backupService.prune()
+        }
     }
 
     /** Applies settings and keeps background scheduling in sync. */
@@ -75,5 +93,6 @@ class AppContainer(context: Context) {
 
     private companion object {
         const val LOG_DIRECTORY = "logs"
+        const val BACKUP_DIRECTORY = "backups"
     }
 }

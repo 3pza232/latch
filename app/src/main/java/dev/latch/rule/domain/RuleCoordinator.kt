@@ -38,6 +38,7 @@ class RuleCoordinator(
     private val engine: RuleEngine,
     private val verifyService: VerifyService,
     private val eventLog: EventLog = EventLog.Noop,
+    private val backupService: BackupService? = null,
 ) {
 
     data class Snapshot(
@@ -287,6 +288,20 @@ class RuleCoordinator(
         return report
     }
 
+    /**
+     * Replaces the whole document with [groups] and drops results for rules that no
+     * longer exist. Results of surviving rules are kept; restored rules will show as
+     * pending until the next verification.
+     */
+    suspend fun restore(groups: List<RuleGroup>) = locked {
+        persistGroups(groups)
+        val validRuleIds = groups.flatMap { it.rules }.map { it.id }.toSet()
+        persistResults(
+            _snapshot.value.results.filterKeys { it in validRuleIds },
+            _snapshot.value.verifiedAt,
+        )
+    }
+
     suspend fun importGroups(
         groups: List<RuleGroup>,
         source: EventSource = EventSource.UI,
@@ -310,9 +325,10 @@ class RuleCoordinator(
     private suspend fun <T> locked(block: suspend () -> T): T =
         withContext(Dispatchers.IO) { mutex.withLock { block() } }
 
-    private fun persistGroups(groups: List<RuleGroup>) {
+    private suspend fun persistGroups(groups: List<RuleGroup>) {
         ruleStore.save(groups)
         _snapshot.update { it.copy(groups = groups) }
+        backupService?.onDocumentChanged()
     }
 
     private fun persistResults(results: Map<String, StoredResult>, verifiedAt: Long) {
