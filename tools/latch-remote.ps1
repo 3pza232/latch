@@ -17,11 +17,13 @@
 param(
     [Parameter(Mandatory = $true)][string]$Address,
     [Parameter(Mandatory = $true)]
-    [ValidateSet('status', 'rules', 'logs', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
+    [ValidateSet('status', 'rules', 'logs', 'backups', 'backup', 'restore', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
     [string]$Command,
     [string]$Code = '',
     [string]$Group = '',
     [string]$Rule = '',
+    [string]$Backup = '',
+    [switch]$Apply,
     [string]$File = '',
     [string]$TokenFile = ''
 )
@@ -82,6 +84,24 @@ switch ($Command) {
             Select-Object @{n = 'time'; e = { [DateTimeOffset]::FromUnixTimeMilliseconds($_.ts).ToLocalTime().ToString('MM-dd HH:mm:ss') } },
                 level, source, action, outcome, detail |
             Format-Table -AutoSize | Out-String -Width 220
+    }
+    'backups' {
+        $result = Invoke-Api -Method Get -Path '/api/backups'
+        $result.backups |
+            Select-Object @{n = 'time'; e = { [DateTimeOffset]::FromUnixTimeMilliseconds($_.createdAt).ToLocalTime().ToString('MM-dd HH:mm') } },
+                id, reason, groups, rules |
+            Format-Table -AutoSize | Out-String -Width 220
+    }
+    'backup' {
+        $result = Invoke-Api -Method Post -Path '/api/backups'
+        if ($result.created) { "CREATED $($result.backup.id)" } else { 'NO CHANGE' }
+    }
+    'restore' {
+        if (-not $Backup) { throw 'restore requires -Backup <backupId>' }
+        $body = @{ apply = [bool]$Apply }
+        if ($Group) { $body.groups = @($Group -split ',') }
+        $result = Invoke-Api -Method Post -Path "/api/backups/$Backup/restore" -Body ($body | ConvertTo-Json)
+        "RESTORED added=$($result.added) replaced=$($result.replaced) removed=$($result.removed) groups=$($result.groups) rules=$($result.rules) applied=$($result.applied)"
     }
     'apply' {
         if (-not $Group) { throw 'apply requires -Group <groupId>' }
