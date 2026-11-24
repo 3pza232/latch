@@ -30,6 +30,7 @@
 | GET | `/api` | 完整接口清单、参数与示例（需鉴权） |
 | POST | `/pair` | 用配对码换 token |
 | GET | `/api/state` | 网关与 Shizuku 状态、分组计数、汇总 |
+| GET | `/api/logs?limit=200` | 最近事件（只读、已脱敏） |
 | GET | `/api/rules` | 完整规则文档 |
 | POST | `/api/import` | 用完整规则文档导入/合并规则 |
 | POST | `/api/rules` | 新增或更新规则（保存后立即应用并返回结果） |
@@ -49,6 +50,21 @@ Authorization: Bearer <token>
 POST /api/rules
 {"groupId":"<groupId>","rule":{"name":"允许相机","targetPackage":"com.example.app","enabled":true,"capability":{"type":"permissionState","permission":"android.permission.CAMERA","mode":"allow"}}}
 ```
+
+## 日志接口
+
+`GET /api/logs` 返回最近事件，按时间倒序，`limit` 上限 1000，默认 200：
+
+```json
+{"ok":true,"count":2,"events":[
+  {"id":"…","ts":1760000000000,"level":"INFO","source":"periodic","action":"repair",
+   "outcome":"ok","detail":"checked=75 applied=75 drifted=0 failed=0 repaired=0","durationMs":2567}
+]}
+```
+
+- 只读，需 Bearer token；
+- 已脱敏：不返回命令原文、stdout/stderr、token、配对码；
+- 详情字段（命令与输出）只在应用内的日志页可见。
 
 ## CLI
 
