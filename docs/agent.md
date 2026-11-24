@@ -3,24 +3,18 @@
 ## 开启连接
 
 设置页 →「局域网连接」→「连接」。
-面板显示一行**配对串**，等待客户端接入。
+面板显示地址（含端口）与 6 位配对码，点「复制连接信息」一次复制两者。
 客户端配对成功后面板自动关闭，设置页显示「已连接」与「断开」。
 
-配对串由三部分拼成，共 14 位数字：
+复制的内容形如：
 
 ```
-02151234986241
-└┬┘└──┬──┘└──┬─┘
-21  51234  986241
-末位  端口   配对码
+地址：http://192.168.10.21:42047
+配对码：541593
 ```
 
-- **末位 3 位**：本机 IPv4 的最后一段（补零）；
-- **端口 5 位**：由系统随机分配，每次连接可能不同；
-- **配对码 6 位**：一次性，失败 5 次后自动更换。
-
-客户端与手机处于同一 `/24` 网段时，用自身 IPv4 的前三段加末位即可还原地址；
-跨网段或非 IPv4 时，改用「地址 + 端口 + 配对码」三项。
+端口由系统随机分配（每次连接可能不同），避免固定端口被扫描；
+配对码一次性使用，失败 5 次后自动更换。
 
 ## 鉴权
 
@@ -78,24 +72,24 @@ POST /api/rules
 ## CLI
 
 `tools/latch-remote.ps1`（PowerShell 7+）通过局域网管理规则。
-配对串一次性给出后，后续命令只需地址与已保存的 token：
+首次用「复制连接信息」里的地址与配对码配对，之后只需地址（token 已保存）：
 
 ```powershell
-./tools/latch-remote.ps1 -Pair 02151234986241 -Command status
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Code 541593 -Command status
 
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command status
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command logs
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command rules
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command apply   -Group adslot-lock
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command verify
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command repair
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command disable -Rule <ruleId>
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command enable  -Rule <ruleId>
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command enable-group  -Group <groupId>
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command disable-group -Group <groupId>
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command add     -File rule.json
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command import  -File rules.json
-./tools/latch-remote.ps1 -Address 192.168.10.21:51234 -Command delete  -Rule <ruleId>
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command status
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command logs
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command rules
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command apply   -Group adslot-lock
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command verify
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command repair
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command disable -Rule <ruleId>
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command enable  -Rule <ruleId>
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command enable-group  -Group <groupId>
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command disable-group -Group <groupId>
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command add     -File rule.json
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command import  -File rules.json
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command delete  -Rule <ruleId>
 ```
 
 首次配对成功后 token 保存到 `tools/.latch-token`（已在 `.gitignore` 中忽略）。
