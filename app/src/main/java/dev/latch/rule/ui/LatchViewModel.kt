@@ -148,6 +148,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            // Boundary snapshots belong to user-visible activity, not background workers.
+            container.backupService.ensureBoundaries()
             container.ruleCoordinator.load()
             _uiState.update {
                 it.copy(
