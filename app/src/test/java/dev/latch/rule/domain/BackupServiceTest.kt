@@ -9,6 +9,7 @@ import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.data.FileBackupStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -17,7 +18,6 @@ import org.junit.Before
 import org.junit.Rule as JvmRule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 class BackupServiceTest {
 

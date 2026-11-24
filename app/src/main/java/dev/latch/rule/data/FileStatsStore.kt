@@ -2,8 +2,8 @@ package dev.latch.rule.data
 
 import dev.latch.rule.core.stats.DayStats
 import dev.latch.rule.core.stats.StatsDocument
-import org.json.JSONObject
 import java.io.File
+import org.json.JSONObject
 
 /** Persistence for aggregated statistics. */
 interface StatsStore {

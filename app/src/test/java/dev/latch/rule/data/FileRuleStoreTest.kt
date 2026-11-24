@@ -5,12 +5,12 @@ import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule as JvmRule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 class FileRuleStoreTest {
 

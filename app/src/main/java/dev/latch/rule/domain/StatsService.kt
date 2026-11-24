@@ -5,11 +5,11 @@ import dev.latch.rule.core.stats.StatsDocument
 import dev.latch.rule.core.stats.StatsSnapshot
 import dev.latch.rule.data.FileEventLog
 import dev.latch.rule.data.StatsStore
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Folds the event log into the persisted day buckets and renders the summary.

@@ -10,17 +10,17 @@ import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.rules.RuleValidation
 import dev.latch.rule.core.rules.TargetPolicy
+import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
-import dev.latch.rule.domain.StatsService
-import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.RuleCoordinator
+import dev.latch.rule.domain.StatsService
 import dev.latch.rule.privilege.PrivilegeBroker
 import fi.iki.elonen.NanoHTTPD
+import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.UUID
 
 /** Minimal JSON REST surface for the paired agent. Pairing is the only unauthenticated route. */
 class GatewayServer(

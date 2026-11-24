@@ -14,6 +14,7 @@ import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.domain.StatsService
 import dev.latch.rule.privilege.PrivilegeBroker
+import java.security.SecureRandom
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.security.SecureRandom
 
 /**
  * Owns the local HTTP gateway and the one-time pairing code.

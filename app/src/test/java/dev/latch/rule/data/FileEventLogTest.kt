@@ -4,6 +4,9 @@ import dev.latch.rule.core.log.EventAction
 import dev.latch.rule.core.log.EventLevel
 import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
+import java.io.File
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -11,9 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule as JvmRule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
-import java.time.LocalDate
-import java.time.ZoneId
 
 class FileEventLogTest {
 

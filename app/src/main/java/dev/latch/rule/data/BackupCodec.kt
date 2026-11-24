@@ -4,8 +4,8 @@ import dev.latch.rule.core.backup.BackupMeta
 import dev.latch.rule.core.backup.BackupReason
 import dev.latch.rule.core.backup.BackupSnapshot
 import dev.latch.rule.core.model.RuleDocument
-import org.json.JSONObject
 import java.security.MessageDigest
+import org.json.JSONObject
 
 /**
  * Self-contained snapshot format: metadata plus the full rule document.

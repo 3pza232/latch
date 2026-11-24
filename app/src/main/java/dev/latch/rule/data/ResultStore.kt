@@ -2,8 +2,8 @@ package dev.latch.rule.data
 
 import android.content.Context
 import dev.latch.rule.core.model.RuleState
-import org.json.JSONObject
 import java.io.File
+import org.json.JSONObject
 
 /** Last known verification outcome for one rule. */
 data class StoredResult(

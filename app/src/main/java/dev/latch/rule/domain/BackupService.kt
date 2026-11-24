@@ -13,9 +13,9 @@ import dev.latch.rule.data.BackupCodec
 import dev.latch.rule.data.BackupStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Creates and prunes snapshots of the rule document.

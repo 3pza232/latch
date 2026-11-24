@@ -2,13 +2,13 @@ package dev.latch.rule.privilege
 
 import android.content.pm.PackageManager
 import dev.latch.rule.core.result.ShellResult
+import java.lang.reflect.Method
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
-import java.lang.reflect.Method
 
 /** [PrivilegeBroker] backed by a running Shizuku service. */
 class ShizukuPrivilegeBroker : PrivilegeBroker {

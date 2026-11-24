@@ -4,10 +4,10 @@ import dev.latch.rule.core.log.EventAction
 import dev.latch.rule.core.log.EventLevel
 import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
-import org.junit.Assert.assertEquals
-import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
+import org.junit.Assert.assertEquals
+import org.junit.Test
 
 class StatsAggregatorTest {
 
