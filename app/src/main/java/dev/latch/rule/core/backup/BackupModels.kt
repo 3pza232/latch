@@ -7,6 +7,10 @@ import dev.latch.rule.core.model.RuleGroup
 enum class BackupReason(val wire: String) {
     MANUAL("manual"),
     AUTO_CHANGE("auto_change"),
+    /** First activity in a clock hour; one is kept as the "1 小时前" slot. */
+    HOURLY("hourly"),
+    /** First activity in a local day; kept for the daily restore slots. */
+    DAILY("daily"),
     PRE_RESTORE("pre_restore"),
     PRE_MIGRATION("pre_migration"),
 }

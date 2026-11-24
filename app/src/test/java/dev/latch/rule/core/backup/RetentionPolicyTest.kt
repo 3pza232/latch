@@ -6,86 +6,7 @@ import org.junit.Test
 
 class RetentionPolicyTest {
 
-    private val now = 1_700_000_000_000L
-    private val minute = 60_000L
-    private val hour = 60 * minute
-    private val day = 24 * hour
-
-    @Test
-    fun `snapshots from the last hour are all kept`() {
-        val metas = listOf(
-            meta("a", now - 10 * minute),
-            meta("b", now - 40 * minute),
-        )
-
-        assertTrue(RetentionPolicy.toDelete(metas, now).isEmpty())
-    }
-
-    @Test
-    fun `older snapshots are thinned to one per hour`() {
-        val metas = listOf(
-            meta("a", now - 3 * hour),
-            meta("b", now - 3 * hour + 10 * minute),
-            meta("c", now - 2 * hour),
-            meta("latest", now - minute),
-        )
-
-        val doomed = RetentionPolicy.toDelete(metas, now)
-
-        assertEquals(setOf("b"), doomed)
-    }
-
-    @Test
-    fun `manual and migration snapshots are never deleted`() {
-        val metas = listOf(
-            meta("manual", now - 400 * day, BackupReason.MANUAL),
-            meta("migration", now - 400 * day, BackupReason.PRE_MIGRATION),
-            meta("auto", now - 450 * day),
-        )
-
-        val doomed = RetentionPolicy.toDelete(metas, now)
-
-        assertTrue("manual" !in doomed)
-        assertTrue("migration" !in doomed)
-        assertTrue("auto" in doomed)
-    }
-
-    @Test
-    fun `only the latest pre-restore snapshots are kept`() {
-        val metas = (1..25).map {
-            meta("pre-$it", now - it * day, BackupReason.PRE_RESTORE)
-        }
-
-        val doomed = RetentionPolicy.toDelete(metas, now)
-
-        assertEquals(5, doomed.size)
-        assertTrue("pre-25" in doomed)
-        assertTrue("pre-1" !in doomed)
-    }
-
-    @Test
-    fun `the newest snapshot is kept even when old`() {
-        val metas = listOf(meta("only", now - 500 * day))
-
-        assertTrue(RetentionPolicy.toDelete(metas, now).isEmpty())
-    }
-
-    @Test
-    fun `the total is capped`() {
-        val metas = (1..300).map { index ->
-            meta("old-$index", now - index * 3 * hour)
-        } + meta("latest", now - minute)
-
-        val doomed = RetentionPolicy.toDelete(metas, now)
-
-        assertTrue(doomed.size >= 300 - RetentionPolicy.MAX_SNAPSHOTS)
-    }
-
-    private fun meta(
-        id: String,
-        createdAt: Long,
-        reason: BackupReason = BackupReason.AUTO_CHANGE,
-    ) = BackupMeta(
+    private fun meta(id: String, createdAt: Long, reason: BackupReason) = BackupMeta(
         id = id,
         createdAt = createdAt,
         reason = reason,
@@ -93,4 +14,63 @@ class RetentionPolicyTest {
         rules = 1,
         docHash = id,
     )
+
+    @Test
+    fun `only the newest change snapshots are kept`() {
+        val metas = (1..120).map { meta("change-$it", it.toLong(), BackupReason.AUTO_CHANGE) }
+
+        val doomed = RetentionPolicy.toDelete(metas)
+
+        assertEquals(20, doomed.size)
+        assertTrue("change-1" in doomed)
+        assertTrue("change-21" !in doomed)
+    }
+
+    @Test
+    fun `only the newest hourly snapshot is kept`() {
+        val metas = (1..3).map { meta("hour-$it", it.toLong(), BackupReason.HOURLY) }
+
+        val doomed = RetentionPolicy.toDelete(metas)
+
+        assertEquals(setOf("hour-1", "hour-2"), doomed)
+    }
+
+    @Test
+    fun `the newest 31 daily snapshots are kept`() {
+        val metas = (1..35).map { meta("day-$it", it.toLong(), BackupReason.DAILY) }
+
+        val doomed = RetentionPolicy.toDelete(metas)
+
+        assertEquals(4, doomed.size)
+        assertTrue("day-4" in doomed)
+        assertTrue("day-5" !in doomed)
+    }
+
+    @Test
+    fun `manual and migration snapshots are never deleted`() {
+        val metas = listOf(
+            meta("manual", 1, BackupReason.MANUAL),
+            meta("migration", 2, BackupReason.PRE_MIGRATION),
+        )
+
+        assertTrue(RetentionPolicy.toDelete(metas).isEmpty())
+    }
+
+    @Test
+    fun `only the latest pre-restore snapshots are kept`() {
+        val metas = (1..25).map { meta("pre-$it", it.toLong(), BackupReason.PRE_RESTORE) }
+
+        val doomed = RetentionPolicy.toDelete(metas)
+
+        assertEquals(5, doomed.size)
+        assertTrue("pre-1" in doomed)
+        assertTrue("pre-21" !in doomed)
+    }
+
+    @Test
+    fun `the newest snapshot is kept whatever its reason`() {
+        val metas = listOf(meta("only", 1, BackupReason.AUTO_CHANGE))
+
+        assertTrue(RetentionPolicy.toDelete(metas).isEmpty())
+    }
 }

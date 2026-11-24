@@ -534,6 +534,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(backupsLoading = true) }
             try {
+                container.backupService.ensureBoundaries()
                 val backups = container.backupService.list()
                 _uiState.update { it.copy(backups = backups) }
             } finally {

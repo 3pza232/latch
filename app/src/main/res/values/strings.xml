@@ -253,6 +253,8 @@
     <string name="backups_snapshot_summary">%1$d 组 / %2$d 条</string>
     <string name="backups_reason_manual">手动</string>
     <string name="backups_reason_auto">自动</string>
+    <string name="backups_reason_hourly">整点</string>
+    <string name="backups_reason_daily">每日</string>
     <string name="backups_reason_pre_restore">恢复前</string>
     <string name="backups_reason_pre_migration">迁移前</string>
     <string name="backups_dialog_title">恢复备份</string>

@@ -16,6 +16,9 @@ import dev.latch.rule.data.RuleStore
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * Creates and prunes snapshots of the rule document.
@@ -67,20 +70,49 @@ class BackupService(
 
     /** Called after a document change; coalesces rapid edits and skips no-op writes. */
     suspend fun onDocumentChanged() {
-        val latest = withContext(Dispatchers.IO) { store.list().firstOrNull() }
-        val recentAuto = latest != null &&
-            latest.reason == BackupReason.AUTO_CHANGE &&
-            clock() - latest.createdAt < autoCoalesceMs
+        ensureBoundaries()
+        val latest = withContext(Dispatchers.IO) {
+            store.list().firstOrNull { it.reason == BackupReason.AUTO_CHANGE }
+        }
+        val recentAuto = latest != null && clock() - latest.createdAt < autoCoalesceMs
         if (recentAuto) return
         snapshotNow(BackupReason.AUTO_CHANGE)
     }
 
-    /** Records the current state once when no snapshot exists yet. */
-    suspend fun snapshotOnStartup() {
-        if (withContext(Dispatchers.IO) { store.list() }.isNotEmpty()) return
-        val groups = withContext(Dispatchers.IO) { currentDocument() }?.groups.orEmpty()
-        if (groups.isEmpty()) return
-        snapshotNow(BackupReason.AUTO_CHANGE)
+    /**
+     * Ensures the current clock hour and local day have a boundary snapshot.
+     *
+     * The capture happens at the first activity inside the boundary, so its real
+     * time is kept; the snapshot still belongs to that hour or day. Missing days
+     * are never backfilled, which keeps the history honest.
+     */
+    suspend fun ensureBoundaries(): Int = withContext(Dispatchers.IO) {
+        if (currentDocument() == null) return@withContext 0
+        val zone = ZoneId.systemDefault()
+        val now = clock()
+        var created = 0
+
+        var metas = store.list()
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val dailyExists = metas.any {
+            it.reason == BackupReason.DAILY &&
+                Instant.ofEpochMilli(it.createdAt).atZone(zone).toLocalDate() == today
+        }
+        if (!dailyExists && snapshotNow(BackupReason.DAILY) != null) {
+            created++
+            metas = store.list()
+        }
+
+        val hour = Instant.ofEpochMilli(now).atZone(zone).truncatedTo(ChronoUnit.HOURS)
+        val hourlyCovered = metas.any {
+            (it.reason == BackupReason.HOURLY || it.reason == BackupReason.DAILY) &&
+                Instant.ofEpochMilli(it.createdAt).atZone(zone)
+                    .truncatedTo(ChronoUnit.HOURS) == hour
+        }
+        if (!hourlyCovered && snapshotNow(BackupReason.HOURLY) != null) {
+            created++
+        }
+        created
     }
 
     /** Deletes the given snapshots; returns how many existed. */
@@ -103,7 +135,7 @@ class BackupService(
 
     suspend fun prune(): Int = withContext(Dispatchers.IO) {
         val metas = store.list()
-        val doomed = RetentionPolicy.toDelete(metas, clock())
+        val doomed = RetentionPolicy.toDelete(metas)
         doomed.forEach(store::delete)
         if (doomed.isNotEmpty()) {
             eventLog.record(

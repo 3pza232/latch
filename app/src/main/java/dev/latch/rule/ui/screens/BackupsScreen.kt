@@ -66,19 +66,16 @@ import dev.latch.rule.ui.theme.LatchDimens
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import dev.latch.rule.core.backup.BackupSlots
 
 private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm")
 
-private const val MINUTE = 60_000L
-private const val HOUR = 60 * MINUTE
-private const val DAY = 24 * HOUR
-
-private val RESTORE_POINTS = listOf(
-    R.string.backups_ago_hour to HOUR,
-    R.string.backups_ago_day to DAY,
-    R.string.backups_ago_3days to 3 * DAY,
-    R.string.backups_ago_7days to 7 * DAY,
-    R.string.backups_ago_30days to 30 * DAY,
+private val RESTORE_POINT_LABELS = listOf(
+    R.string.backups_ago_hour,
+    R.string.backups_ago_day,
+    R.string.backups_ago_3days,
+    R.string.backups_ago_7days,
+    R.string.backups_ago_30days,
 )
 
 /**
@@ -125,6 +122,17 @@ fun BackupsScreen(
         target = null
         onClearPreview()
     }
+
+    val points = remember(backups) {
+        BackupSlots.select(backups, System.currentTimeMillis(), ZoneId.systemDefault())
+    }
+    val quickPoints = listOf(
+        points.hourly,
+        points.oneDay,
+        points.threeDays,
+        points.sevenDays,
+        points.thirtyDays,
+    )
 
     LaunchedEffect(target?.id, scopeAll, selectedGroupIds) {
         val meta = target ?: return@LaunchedEffect
@@ -221,10 +229,11 @@ fun BackupsScreen(
                     SectionTitle(stringResource(R.string.backups_restore_points))
                     Spacer(Modifier.height(8.dp))
                 }
-                items(RESTORE_POINTS, key = { it.first }) { (label, offset) ->
+                items(RESTORE_POINT_LABELS, key = { it }) { label ->
+                    val index = RESTORE_POINT_LABELS.indexOf(label)
                     RestorePointRow(
                         label = label,
-                        meta = nearestBefore(backups, offset),
+                        meta = quickPoints.getOrNull(index),
                         onClick = { meta -> openRestore(meta) },
                     )
                 }
@@ -527,10 +536,7 @@ private fun SectionTitle(text: String) {
     )
 }
 
-private fun nearestBefore(backups: List<BackupMeta>, offset: Long): BackupMeta? {
-    val cutoff = System.currentTimeMillis() - offset
-    return backups.firstOrNull { it.createdAt <= cutoff }
-}
+
 
 @Composable
 private fun describePlan(plan: RestorePlan): String {
@@ -557,6 +563,8 @@ private fun changeLabel(kind: GroupChangeKind): Int = when (kind) {
 private fun reasonLabel(reason: BackupReason): Int = when (reason) {
     BackupReason.MANUAL -> R.string.backups_reason_manual
     BackupReason.AUTO_CHANGE -> R.string.backups_reason_auto
+    BackupReason.HOURLY -> R.string.backups_reason_hourly
+    BackupReason.DAILY -> R.string.backups_reason_daily
     BackupReason.PRE_RESTORE -> R.string.backups_reason_pre_restore
     BackupReason.PRE_MIGRATION -> R.string.backups_reason_pre_migration
 }

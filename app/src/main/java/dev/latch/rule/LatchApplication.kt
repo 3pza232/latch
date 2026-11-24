@@ -108,7 +108,7 @@ class AppContainer(context: Context) {
         appScope.launch {
             // Fold the log into the persisted counters before any pruning.
             statsService.refresh()
-            backupService.snapshotOnStartup()
+            backupService.ensureBoundaries()
             backupService.prune()
             fileEventLog.prune(settingsStore.load().logRetentionDays)
         }
