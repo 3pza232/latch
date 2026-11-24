@@ -34,6 +34,9 @@
 | POST | `/pair` | 用配对码换 token |
 | GET | `/api/state` | 网关与 Shizuku 状态、分组计数、汇总 |
 | GET | `/api/logs?limit=200` | 最近事件（只读、已脱敏） |
+| GET | `/api/backups` | 规则快照列表（新到旧） |
+| POST | `/api/backups` | 立即创建手动快照 |
+| POST | `/api/backups/{id}/restore` | 恢复快照（可限定规则组） |
 | GET | `/api/rules` | 完整规则文档 |
 | POST | `/api/import` | 用完整规则文档导入/合并规则 |
 | POST | `/api/rules` | 新增或更新规则（保存后立即应用并返回结果） |
@@ -69,6 +72,19 @@ POST /api/rules
 - 已脱敏：不返回命令原文、stdout/stderr、token、配对码；
 - 详情字段（命令与输出）只在应用内的日志页可见。
 
+## 备份与恢复接口
+
+恢复只改规则配置，默认不下发系统命令；`apply: true` 才会在恢复后立即应用。
+请求体中的 `groups` 省略时恢复整个文档，给出组 id 列表时只恢复这些组：
+
+```http
+POST /api/backups/b-1760000000000-ab12cd34/restore
+{"groups":["adslot-lock"],"apply":false}
+```
+
+返回新增、替换、删除的组数，以及恢复后的组数与规则数。
+恢复前会自动创建一份 `pre_restore` 快照，因此这次恢复本身也可以撤销。
+
 ## CLI
 
 `tools/latch-remote.ps1`（PowerShell 7+）通过局域网管理规则。
@@ -79,6 +95,9 @@ POST /api/rules
 
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command status
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command logs
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command backups
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command backup
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command restore -Backup <backupId> -Group adslot-lock
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command rules
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command apply   -Group adslot-lock
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command verify

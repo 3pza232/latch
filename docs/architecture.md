@@ -9,7 +9,7 @@ core/log       事件模型：LatchEvent / EventLog
 privilege      特权通道：PrivilegeBroker 与 Shizuku 实现
 engine         命令映射、输出解析、应用与校验、结果到事件的映射
 domain         RuleCoordinator：规则状态中枢
-data           规则 / 结果 / 设置 / 事件日志存储，JSON 编解码，已安装应用
+data           规则 / 结果 / 设置 / 事件日志 / 备份快照存储，JSON 编解码，已安装应用
 gateway        局域网网关：配对、鉴权、REST、前台服务
 ui             Compose 界面、ViewModel、组件
 work           后台校验 Worker 与调度
@@ -46,6 +46,10 @@ UI 操作 ──▶ ViewModel ──▶ RuleCoordinator ──▶ RuleStore
 
 `RuleCoordinator` 串行化所有写操作，并在变更后更新 `StateFlow<Snapshot>`；
 UI 收集该状态，因此本地与远程修改立即一致。
+
+每次规则文档落盘后，`BackupService` 会创建快照（相同内容去重、短时间内的连续
+修改合并）。恢复由 `RestoreService` 规划：比较快照与当前文档，产出目标文档与
+差异，写回前先创建 `pre_restore` 快照。恢复本身不执行系统命令。
 
 ## 后台
 
