@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.latch.rule.data.InstalledApp
 import dev.latch.rule.ui.screens.GroupScreen
 import dev.latch.rule.ui.screens.HomeScreen
+import dev.latch.rule.ui.screens.LogsScreen
 import dev.latch.rule.ui.screens.RuleEditorScreen
 import dev.latch.rule.ui.screens.SettingsScreen
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +47,7 @@ fun LatchApp(
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var editorRuleId by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var logsOpen by rememberSaveable { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -76,9 +78,16 @@ fun LatchApp(
         }
     }
 
+    LaunchedEffect(logsOpen) {
+        if (logsOpen) viewModel.loadLogs()
+    }
+
     BackHandler(enabled = editorOpen) { editorOpen = false }
-    BackHandler(enabled = !editorOpen && settingsOpen) { settingsOpen = false }
-    BackHandler(enabled = !editorOpen && !settingsOpen && selectedGroupId != null) { selectedGroupId = null }
+    BackHandler(enabled = !editorOpen && logsOpen) { logsOpen = false }
+    BackHandler(enabled = !editorOpen && !logsOpen && settingsOpen) { settingsOpen = false }
+    BackHandler(enabled = !editorOpen && !logsOpen && !settingsOpen && selectedGroupId != null) {
+        selectedGroupId = null
+    }
 
     val selectedGroup = state.groups.firstOrNull { it.id == selectedGroupId }
     val editingRule = selectedGroup?.rules?.firstOrNull { it.id == editorRuleId }
@@ -101,6 +110,16 @@ fun LatchApp(
                 onBack = { editorOpen = false },
             )
 
+            // Checked before settings: the log screen is opened from there and the
+            // settings flag stays set so Back returns to it.
+            logsOpen -> LogsScreen(
+                logs = state.logs,
+                loading = state.logsLoading,
+                onBack = { logsOpen = false },
+                onRefresh = viewModel::loadLogs,
+                onClear = viewModel::clearLogs,
+            )
+
             settingsOpen -> SettingsScreen(
                 state = state,
                 onBack = { settingsOpen = false },
@@ -119,7 +138,9 @@ fun LatchApp(
                 onExportJson = { exportLauncher.launch("latch-rules.json") },
                 onStartAgent = viewModel::startAgentGateway,
                 onStopAgent = viewModel::stopAgentGateway,
+                onOpenLogs = { logsOpen = true },
             )
+
             selectedGroup != null -> GroupScreen(
                 group = selectedGroup,
                 state = state,

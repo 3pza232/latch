@@ -63,7 +63,7 @@ class AgentGateway(
         failures = 0
         token = null
         currentCode = "%06d".format(random.nextInt(1_000_000))
-        val created = GatewayServer(this, coordinator, privilege, versionName)
+        val created = GatewayServer(this, coordinator, privilege, versionName, eventLog)
         val started = runCatching { created.start(2_000, false) }
         if (started.isFailure) {
             runCatching { created.stop() }

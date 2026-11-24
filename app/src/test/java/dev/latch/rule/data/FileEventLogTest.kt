@@ -34,7 +34,7 @@ class FileEventLogTest {
         log.record(event(timestampOf(now), "first"))
         log.record(event(timestampOf(now) + 1, "second"))
 
-        val events = log.read()
+        val events = log.query()
 
         assertEquals(listOf("second", "first"), events.map { it.message })
     }
@@ -59,7 +59,7 @@ class FileEventLogTest {
         val removed = log.prune(keepDays = 7)
 
         assertEquals(1, removed)
-        assertEquals(listOf("today"), log.read().map { it.message })
+        assertEquals(listOf("today"), log.query().map { it.message })
     }
 
     @Test
@@ -68,7 +68,7 @@ class FileEventLogTest {
         log.record(event(timestampOf(now), "good"))
         File(folder.root, "logs/2026-11-24.ndjson").appendText("{ broken\n")
 
-        val events = log.read()
+        val events = log.query()
 
         assertEquals(listOf("good"), events.map { it.message })
     }
@@ -79,7 +79,7 @@ class FileEventLogTest {
         log.record(event(timestampOf(now), "recent"))
         log.record(event(timestampOf(now.minusDays(2)), "older"))
 
-        val events = log.read(since = timestampOf(now.minusDays(1)))
+        val events = log.query(since = timestampOf(now.minusDays(1)))
 
         assertEquals(listOf("recent"), events.map { it.message })
     }

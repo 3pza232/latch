@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.latch.rule.AppContainer
+import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleState
@@ -50,6 +51,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val message: String? = null,
         val openGroupId: String? = null,
         val gateway: AgentGateway.State = AgentGateway.State(),
+        val logs: List<LatchEvent> = emptyList(),
+        val logsLoading: Boolean = false,
     ) {
         fun resultOf(ruleId: String): StoredResult? = results[ruleId]
 
@@ -326,6 +329,26 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     // endregion
 
+    // region event log
+
+    fun loadLogs() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(logsLoading = true) }
+            val logs = container.eventLog.recent(LOG_PAGE_SIZE)
+            _uiState.update { it.copy(logs = logs, logsLoading = false) }
+        }
+    }
+
+    fun clearLogs() {
+        viewModelScope.launch {
+            container.eventLog.clear()
+            _uiState.update { it.copy(logs = emptyList()) }
+            _uiState.update { it.copy(message = "日志已清空") }
+        }
+    }
+
+    // endregion
+
     suspend fun loadInstalledApps() = withContext(Dispatchers.IO) { container.installedApps.all() }
 
     private fun summarize(label: String, results: Collection<StoredResult>): String {
@@ -354,6 +377,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     companion object {
         private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"
+        private const val LOG_PAGE_SIZE = 300
 
         fun factory(container: AppContainer) = viewModelFactory {
             initializer { LatchViewModel(container) }

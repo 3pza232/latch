@@ -58,6 +58,7 @@ fun SettingsScreen(
     onExportJson: () -> Unit,
     onStartAgent: () -> Unit,
     onStopAgent: () -> Unit,
+    onOpenLogs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -188,6 +189,14 @@ fun SettingsScreen(
                 subtitle = "从最近任务列表隐藏 Latch",
                 checked = state.settings.hideFromRecents,
                 onChange = { onUpdateSettings(state.settings.copy(hideFromRecents = it)) },
+            )
+
+            SectionTitle("诊断")
+            AgentRow(
+                title = "运行日志",
+                subtitle = "查看应用、校验、修复与配对记录",
+                actionLabel = "查看",
+                onAction = onOpenLogs,
             )
 
             SectionTitle("数据")

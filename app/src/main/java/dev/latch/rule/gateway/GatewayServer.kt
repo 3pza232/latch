@@ -1,6 +1,8 @@
 package dev.latch.rule.gateway
 
+import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.EventSource
+import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.RuleCoordinator
@@ -17,6 +19,7 @@ class GatewayServer(
     private val coordinator: RuleCoordinator,
     private val privilege: PrivilegeBroker,
     private val versionName: String,
+    private val eventLog: EventLog,
 ) : NanoHTTPD(AgentGateway.PORT) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -30,6 +33,7 @@ class GatewayServer(
                     json(Response.Status.UNAUTHORIZED, error("unauthorized"))
                 (uri == "/api" || uri == "/api/docs") && method == Method.GET -> apiDocs()
                 uri == "/api/state" && method == Method.GET -> state()
+                uri == "/api/logs" && method == Method.GET -> logs(session)
                 uri == "/api/rules" && method == Method.GET -> rules()
                 uri == "/api/import" && method == Method.POST -> importRules(session)
                 uri == "/api/rules" && method == Method.POST -> upsertRule(session)
@@ -85,6 +89,7 @@ class GatewayServer(
                 "endpoints",
                 JSONArray()
                     .put(endpoint("GET", "/api/state", null, "Gateway/Shizuku status, group counts and summary"))
+                    .put(endpoint("GET", "/api/logs?limit=200", null, "Recent sanitized events (no commands or raw output)"))
                     .put(endpoint("GET", "/api/rules", null, "Full rule document (same shape as exported JSON)"))
                     .put(endpoint("POST", "/api/import", JSONObject().put("version", 1).put("groups", "<rule groups>"), "Replace/merge rules from a full rule document"))
                     .put(
@@ -185,6 +190,40 @@ class GatewayServer(
                 ),
         )
     }
+
+    /**
+     * Recent events for diagnostics. Read-only and sanitized: raw commands, shell
+     * output and credentials never leave the device through this route.
+     */
+    private fun logs(session: IHTTPSession): Response {
+        val limit = session.parameters["limit"]?.firstOrNull()?.toIntOrNull()?.coerceIn(1, 1_000) ?: 200
+        val events = runBlocking { eventLog.recent(limit) }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("count", events.size)
+                .put("events", JSONArray().apply { events.forEach { put(eventJson(it)) } }),
+        )
+    }
+
+    private fun eventJson(event: LatchEvent) = JSONObject()
+        .put("id", event.id)
+        .put("ts", event.timestamp)
+        .put("level", event.level.name)
+        .put("source", event.source.wire)
+        .put("action", event.action.wire)
+        .put("outcome", event.outcome)
+        .put("groupId", event.groupId)
+        .put("groupName", event.groupName)
+        .put("ruleId", event.ruleId)
+        .put("ruleName", event.ruleName)
+        .put("expected", event.expected)
+        .put("actual", event.actual)
+        .put("errorCode", event.errorCode)
+        .put("message", event.message)
+        .put("detail", event.detail)
+        .put("durationMs", event.durationMs)
 
     private fun rules(): Response {
         val text = RuleCodec.encode(coordinator.snapshot.value.groups)

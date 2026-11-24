@@ -35,11 +35,20 @@ class FileEventLog(
         Unit
     }
 
+    override suspend fun recent(limit: Int): List<LatchEvent> = query(limit = limit)
+
+    override suspend fun clear() = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            logFiles().forEach { runCatching { it.delete() } }
+        }
+        Unit
+    }
+
     /**
      * Reads events newest first, stopping at [limit].
      * A partially written trailing line is skipped rather than failing the whole read.
      */
-    suspend fun read(since: Long = 0L, until: Long = Long.MAX_VALUE, limit: Int = 500): List<LatchEvent> =
+    suspend fun query(since: Long = 0L, until: Long = Long.MAX_VALUE, limit: Int = 500): List<LatchEvent> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 runCatching {
