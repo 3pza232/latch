@@ -29,7 +29,11 @@ class AgentGatewayService : Service() {
             gateway.state.collect { state ->
                 getSystemService(NotificationManager::class.java)
                     ?.notify(NOTIFICATION_ID, buildNotification(state))
-                if (state.status == AgentGateway.Status.IDLE) stopSelf()
+                if (state.status == AgentGateway.Status.IDLE ||
+                    state.status == AgentGateway.Status.ERROR
+                ) {
+                    stopSelf()
+                }
             }
         }
     }

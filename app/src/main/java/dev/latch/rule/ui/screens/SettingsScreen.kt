@@ -133,6 +133,13 @@ fun SettingsScreen(
                     actionLabel = "断开",
                     onAction = onStopAgent,
                 )
+
+                AgentGateway.Status.ERROR -> AgentRow(
+                    title = "无法启动",
+                    subtitle = state.gateway.error ?: "端口 ${state.gateway.port} 不可用",
+                    actionLabel = "重试",
+                    onAction = onStartAgent,
+                )
             }
 
             SectionTitle("自检")

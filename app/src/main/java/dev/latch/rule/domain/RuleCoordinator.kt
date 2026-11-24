@@ -4,6 +4,7 @@ import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleCodec
+import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.StoredResult
 import dev.latch.rule.data.VerificationSnapshot
@@ -36,6 +37,8 @@ class RuleCoordinator(
         val results: Map<String, StoredResult> = emptyMap(),
         val verifiedAt: Long = 0L,
         val loading: Boolean = true,
+        /** Set when the rule document could not be read, so the UI can offer recovery. */
+        val loadError: String? = null,
     )
 
     private val mutex = Mutex()
@@ -43,14 +46,20 @@ class RuleCoordinator(
     val snapshot: StateFlow<Snapshot> = _snapshot.asStateFlow()
 
     suspend fun load() {
-        val groups = withContext(Dispatchers.IO) { ruleStore.load() }
+        val loaded = withContext(Dispatchers.IO) { ruleStore.load() }
         val verification = withContext(Dispatchers.IO) { resultStore.load() }
         _snapshot.value = Snapshot(
-            groups = groups,
+            groups = (loaded as? RuleLoadResult.Success)?.groups.orEmpty(),
             results = verification.results,
             verifiedAt = verification.verifiedAt,
             loading = false,
+            loadError = (loaded as? RuleLoadResult.Corrupt)?.toMessage(),
         )
+    }
+
+    private fun RuleLoadResult.Corrupt.toMessage(): String {
+        val preserved = preservedAs?.let { "已保留副本 $it。" }.orEmpty()
+        return "规则文件无法解析：$message。${preserved}请从备份恢复或重新导入。"
     }
 
     suspend fun createGroup(name: String, description: String = ""): RuleGroup = locked {

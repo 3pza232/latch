@@ -1,6 +1,9 @@
 package dev.latch.rule.engine
 
+import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.data.ResultStore
+import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.StoredResult
 import dev.latch.rule.data.VerificationSnapshot
@@ -23,7 +26,7 @@ class VerifyService(
     )
 
     suspend fun verifyAll(): VerificationSnapshot {
-        val groups = ruleStore.load().filter { it.enabled }
+        val groups = enabledGroups()
         val checkedAt = System.currentTimeMillis()
         val results = buildMap {
             groups.forEach { group ->
@@ -39,12 +42,12 @@ class VerifyService(
 
     /** Verifies, re-applies drifted rules, then reports what is still broken. */
     suspend fun verifyAndRepair(): RepairReport {
-        val groups = ruleStore.load().filter { it.enabled }
+        val groups = enabledGroups()
         val rules = groups.flatMap { it.rules }.filter { it.enabled }
         val checkedAt = System.currentTimeMillis()
 
         val initial = rules.associate { it.id to engine.verify(it).toStored(checkedAt) }
-        val driftedRules = rules.filter { initial[it.id]?.state == dev.latch.rule.core.model.RuleState.DRIFTED }
+        val driftedRules = rules.filter { initial[it.id]?.state == RuleState.DRIFTED }
         val repaired = driftedRules.associate { rule ->
             rule.id to engine.apply(rule).toStored(System.currentTimeMillis())
         }
@@ -53,11 +56,15 @@ class VerifyService(
 
         return RepairReport(
             checked = rules.size,
-            repaired = repaired.values.count { it.state == dev.latch.rule.core.model.RuleState.APPLIED },
-            remainingDrifted = merged.values.count { it.state == dev.latch.rule.core.model.RuleState.DRIFTED },
-            remainingFailed = merged.values.count { it.state == dev.latch.rule.core.model.RuleState.FAILED },
+            repaired = repaired.values.count { it.state == RuleState.APPLIED },
+            remainingDrifted = merged.values.count { it.state == RuleState.DRIFTED },
+            remainingFailed = merged.values.count { it.state == RuleState.FAILED },
         )
     }
+
+    /** An unreadable document must not look like "there are no rules". */
+    private fun enabledGroups(): List<RuleGroup> =
+        (ruleStore.load() as? RuleLoadResult.Success)?.groups.orEmpty().filter { it.enabled }
 }
 
 fun RuleResult.toStored(checkedAt: Long): StoredResult = StoredResult(

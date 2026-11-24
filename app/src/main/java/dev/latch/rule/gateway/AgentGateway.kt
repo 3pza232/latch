@@ -20,7 +20,7 @@ class AgentGateway(
     private val privilege: PrivilegeBroker,
 ) {
 
-    enum class Status { IDLE, WAITING, CONNECTED }
+    enum class Status { IDLE, WAITING, CONNECTED, ERROR }
 
     data class State(
         val status: Status = Status.IDLE,
@@ -28,6 +28,8 @@ class AgentGateway(
         val address: String? = null,
         val port: Int = PORT,
         val clients: Int = 0,
+        /** Why the gateway could not start; shown instead of an idle panel. */
+        val error: String? = null,
     )
 
     private val random = SecureRandom()
@@ -43,19 +45,34 @@ class AgentGateway(
     private var currentCode: String? = null
     private var failures = 0
 
+    /** Starts listening; returns false and publishes [Status.ERROR] when the port is unusable. */
     @Synchronized
-    fun start() {
-        if (server != null) return
+    fun start(): Boolean {
+        if (server != null) return true
         failures = 0
         token = null
         currentCode = "%06d".format(random.nextInt(1_000_000))
-        server = GatewayServer(this, coordinator, privilege, versionName).also { it.start(2_000, false) }
+        val created = GatewayServer(this, coordinator, privilege, versionName)
+        val started = runCatching { created.start(2_000, false) }
+        if (started.isFailure) {
+            runCatching { created.stop() }
+            server = null
+            currentCode = null
+            _state.value = State(
+                status = Status.ERROR,
+                error = started.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
+                    ?: "无法监听端口 $PORT",
+            )
+            return false
+        }
+        server = created
         _state.value = State(
             status = Status.WAITING,
             code = currentCode,
             address = localAddress(),
             port = PORT,
         )
+        return true
     }
 
     @Synchronized

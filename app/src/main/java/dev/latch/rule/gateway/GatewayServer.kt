@@ -42,6 +42,8 @@ class GatewayServer(
                 uri == "/api/ping" -> json(Response.Status.OK, JSONObject().put("ok", true))
                 else -> json(Response.Status.NOT_FOUND, error("not found"))
             }
+        } catch (e: BodyTooLargeException) {
+            json(Response.Status.PAYLOAD_TOO_LARGE, error(e.message.orEmpty()))
         } catch (t: Throwable) {
             json(Response.Status.INTERNAL_ERROR, error(t.message ?: "internal error"))
         }
@@ -304,10 +306,16 @@ class GatewayServer(
         JSONObject(bodyText(session))
     }.getOrNull()
 
-    /** Read the request body as UTF-8 regardless of the Content-Type charset. */
+    /**
+     * Read the request body as UTF-8 regardless of the Content-Type charset.
+     *
+     * The length is checked before allocating so a hostile local client cannot exhaust
+     * memory by announcing a huge body.
+     */
     private fun bodyText(session: IHTTPSession): String {
         val length = session.headers["content-length"]?.toIntOrNull() ?: 0
         if (length <= 0) return ""
+        if (length > MAX_BODY_BYTES) throw BodyTooLargeException()
         val stream = session.inputStream ?: return ""
         val buffer = ByteArray(length)
         var offset = 0
@@ -319,6 +327,9 @@ class GatewayServer(
         return String(buffer, 0, offset, Charsets.UTF_8)
     }
 
+    private class BodyTooLargeException :
+        RuntimeException("request body exceeds ${MAX_BODY_BYTES / (1024 * 1024)} MiB")
+
     private fun error(message: String): JSONObject =
         JSONObject().put("ok", false).put("error", message)
 
@@ -326,6 +337,8 @@ class GatewayServer(
         newFixedLengthResponse(status, "application/json; charset=utf-8", payload.toString())
 
     private companion object {
+        const val MAX_BODY_BYTES = 2 * 1024 * 1024
+
         val RULE_SHAPE: JSONObject = JSONObject()
             .put("id", "<optional>")
             .put("name", "<display name>")
@@ -339,7 +352,7 @@ class GatewayServer(
                     .put("mode", "ignore | allow | default")
                     .put("scope", "uid | package")
                     .put("permission", "<permission, for permissionState>")
-                    .put("mode", "allow | foreground | ask | deny | approximate | selected")
+                    .put("mode", "allow | deny")
                     .put("enabled", "<bool, for setEnabled>"),
             )
     }

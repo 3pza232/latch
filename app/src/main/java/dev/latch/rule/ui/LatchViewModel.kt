@@ -102,6 +102,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                     privilege = container.privilegeBroker.status(),
                     settings = container.settingsStore.load(),
                     loading = false,
+                    message = container.ruleCoordinator.snapshot.value.loadError ?: it.message,
                 )
             }
             if (_uiState.value.settings.autoVerifyOnOpen &&
@@ -243,7 +244,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     // region agent gateway
 
     fun startAgentGateway() {
-        container.agentGateway.start()
+        // Only keep a foreground service alive when the socket actually bound.
+        if (!container.agentGateway.start()) return
         ContextCompat.startForegroundService(
             container.appContext,
             Intent(container.appContext, AgentGatewayService::class.java),
