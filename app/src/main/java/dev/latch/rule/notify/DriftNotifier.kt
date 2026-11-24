@@ -3,11 +3,14 @@ package dev.latch.rule.notify
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import dev.latch.rule.MainActivity
 import dev.latch.rule.R
 
 /** Posts a notification only when automatic repair leaves rules broken. */
@@ -31,10 +34,20 @@ class DriftNotifier(private val context: Context) {
             if (failed > 0) append(if (isEmpty()) "" else "，").append("$failed 条失败")
             append("；自动修复未成功，请打开 Latch 处理。")
         }
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_latch)
             .setContentTitle("规则自动修复失败")
             .setContentText(text)
+            .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()
         manager.notify(NOTIFICATION_ID, notification)

@@ -2,12 +2,14 @@ package dev.latch.rule.gateway
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import dev.latch.rule.LatchApplication
+import dev.latch.rule.MainActivity
 import dev.latch.rule.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +51,15 @@ class AgentGatewayService : Service() {
 
     private fun buildNotification(state: AgentGateway.State): android.app.Notification {
         val connected = state.status == AgentGateway.Status.CONNECTED
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            1,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_latch)
             .setColor(ContextCompat.getColor(this, R.color.ic_launcher_accent))
@@ -60,6 +71,7 @@ class AgentGatewayService : Service() {
                     "等待连接；可在 Latch 设置中断开"
                 },
             )
+            .setContentIntent(contentIntent)
             .setOngoing(true)
             .build()
     }
