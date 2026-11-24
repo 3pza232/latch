@@ -5,6 +5,7 @@ import android.content.ContentResolver
 import android.content.Context
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.rules.TargetPolicy
+import dev.latch.rule.core.rules.UidLookup
 import dev.latch.rule.data.BackupStore
 import dev.latch.rule.data.FileBackupStore
 import dev.latch.rule.data.FileEventLog
@@ -12,9 +13,10 @@ import dev.latch.rule.data.FileResultStore
 import dev.latch.rule.data.FileRuleStore
 import dev.latch.rule.data.FileStatsStore
 import dev.latch.rule.data.InstalledApps
-import dev.latch.rule.data.ProtectedTargets
 import dev.latch.rule.data.LatchSettings
+import dev.latch.rule.data.PackageUids
 import dev.latch.rule.data.PreferencesSettingsStore
+import dev.latch.rule.data.ProtectedTargets
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.SettingsStore
@@ -23,18 +25,19 @@ import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.domain.StatsService
-import dev.latch.rule.engine.RuleEngine
 import dev.latch.rule.domain.VerifyService
+import dev.latch.rule.engine.RuleEngine
 import dev.latch.rule.gateway.AgentGateway
 import dev.latch.rule.notify.DriftNotifier
 import dev.latch.rule.privilege.PrivilegeBroker
 import dev.latch.rule.privilege.ShizukuPrivilegeBroker
+import dev.latch.rule.work.RetentionScheduler
 import dev.latch.rule.work.VerifyScheduler
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.io.File
 
 /** Process-wide dependency graph. Keep construction explicit and cheap. */
 class LatchApplication : Application() {
@@ -65,12 +68,14 @@ class AppContainer(context: Context) {
     val statsStore: StatsStore = FileStatsStore(File(appContext.filesDir, STATS_DIRECTORY))
     val statsService: StatsService = StatsService(fileEventLog, statsStore)
     val targetPolicy: TargetPolicy = TargetPolicy(ProtectedTargets(appContext).packages())
+    val uidLookup: UidLookup = PackageUids(appContext)
     val verifyService: VerifyService = VerifyService(
         ruleStore,
         resultStore,
         ruleEngine,
         eventLog,
         targetPolicy,
+        uidLookup,
     )
     val ruleCoordinator: RuleCoordinator = RuleCoordinator(
         ruleStore = ruleStore,
@@ -81,6 +86,7 @@ class AppContainer(context: Context) {
         backupService = backupService,
         autoReapply = { settingsStore.load().autoReapplyOnUnsuppress },
         targetPolicy = targetPolicy,
+        uidLookup = uidLookup,
     )
     val restoreService: RestoreService = RestoreService(backupService, ruleCoordinator, eventLog)
     val agentGateway: AgentGateway = AgentGateway(
@@ -98,6 +104,7 @@ class AppContainer(context: Context) {
     val contentResolver: ContentResolver get() = appContext.contentResolver
 
     init {
+        RetentionScheduler.enqueue(appContext)
         appScope.launch {
             // Fold the log into the persisted counters before any pruning.
             statsService.refresh()

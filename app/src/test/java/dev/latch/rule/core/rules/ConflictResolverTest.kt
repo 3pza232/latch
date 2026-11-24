@@ -2,6 +2,7 @@ package dev.latch.rule.core.rules
 
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
+import dev.latch.rule.core.model.OpScope
 import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleDocument
@@ -63,6 +64,68 @@ class ConflictResolverTest {
         val deny = rule("b", Capability.PermissionState("android.permission.CAMERA", PermissionMode.DENY))
 
         assertEquals("权限 CAMERA", ConflictResolver.conflictReason(allow, deny))
+    }
+
+    @Test
+    fun `a uid scoped op conflicts with a package rule on another package sharing the uid`() {
+        val shared = UidLookup { packageName ->
+            if (packageName == "com.example.app" || packageName == "com.example.companion") 10100 else null
+        }
+        val uidScoped = rule("a", Capability.AppOp("CAMERA", OpMode.IGNORE, OpScope.UID))
+        val packageScoped = rule(
+            "b",
+            Capability.AppOp("CAMERA", OpMode.ALLOW, OpScope.PACKAGE),
+            target = "com.example.companion",
+        )
+
+        assertEquals(
+            "共享 UID 上的 AppOps CAMERA",
+            ConflictResolver.conflictReason(uidScoped, packageScoped, shared),
+        )
+    }
+
+    @Test
+    fun `package scoped rules on different packages never conflict`() {
+        val shared = UidLookup { 10100 }
+        val first = rule("a", Capability.AppOp("CAMERA", OpMode.IGNORE, OpScope.PACKAGE))
+        val second = rule(
+            "b",
+            Capability.AppOp("CAMERA", OpMode.ALLOW, OpScope.PACKAGE),
+            target = "com.example.companion",
+        )
+
+        assertNull(ConflictResolver.conflictReason(first, second, shared))
+    }
+
+    @Test
+    fun `different uids do not conflict`() {
+        val lookup = UidLookup { packageName ->
+            if (packageName == "com.example.app") 10100 else 10200
+        }
+        val first = rule("a", Capability.AppOp("CAMERA", OpMode.IGNORE, OpScope.UID))
+        val second = rule(
+            "b",
+            Capability.AppOp("CAMERA", OpMode.ALLOW, OpScope.PACKAGE),
+            target = "com.example.companion",
+        )
+
+        assertNull(ConflictResolver.conflictReason(first, second, lookup))
+    }
+
+    @Test
+    fun `permission facts never cross packages`() {
+        val shared = UidLookup { 10100 }
+        val first = rule(
+            "a",
+            Capability.PermissionState("android.permission.CAMERA", PermissionMode.ALLOW),
+        )
+        val second = rule(
+            "b",
+            Capability.PermissionState("android.permission.CAMERA", PermissionMode.DENY),
+            target = "com.example.companion",
+        )
+
+        assertNull(ConflictResolver.conflictReason(first, second, shared))
     }
 
     @Test

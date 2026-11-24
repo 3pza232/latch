@@ -12,6 +12,7 @@ import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.rules.ConflictResolver
 import dev.latch.rule.core.rules.RuleConflict
 import dev.latch.rule.core.rules.TargetPolicy
+import dev.latch.rule.core.rules.UidLookup
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.data.RuleLoadResult
@@ -21,6 +22,7 @@ import dev.latch.rule.data.VerificationSnapshot
 import dev.latch.rule.engine.RuleEngine
 import dev.latch.rule.engine.batchEvent
 import dev.latch.rule.engine.toEvent
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +31,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 /**
  * Single source of truth for rules and verification state.
@@ -44,6 +45,7 @@ class RuleCoordinator(
     private val backupService: BackupService? = null,
     private val autoReapply: () -> Boolean = { true },
     private val targetPolicy: TargetPolicy = TargetPolicy(TargetPolicy.ALWAYS_PROTECTED),
+    private val uidLookup: UidLookup = UidLookup.None,
 ) {
 
     data class Snapshot(
@@ -76,7 +78,7 @@ class RuleCoordinator(
             verifiedAt = verification.verifiedAt,
             loading = false,
             loadError = (loaded as? RuleLoadResult.Corrupt)?.toMessage(),
-            suppressed = ConflictResolver.suppressedBy(document),
+            suppressed = ConflictResolver.suppressedBy(document, uidLookup),
             blocked = blockedRules(document),
         )
     }
@@ -95,7 +97,7 @@ class RuleCoordinator(
     fun conflictsFor(groupId: String, rule: Rule): List<RuleConflict> {
         val document = _snapshot.value.document
         val group = document.groups.firstOrNull { it.id == groupId } ?: return emptyList()
-        return ConflictResolver.conflicts(document, rule, group.enabled)
+        return ConflictResolver.conflicts(document, rule, group.enabled, uidLookup)
     }
 
     suspend fun createGroup(
@@ -226,7 +228,7 @@ class RuleCoordinator(
                 outcome = "saved",
             ),
         )
-        val suppressed = ConflictResolver.suppressedBy(updated)
+        val suppressed = ConflictResolver.suppressedBy(updated, uidLookup)
         val blocked = blockedRules(updated)
         if (!rule.enabled || !updatedGroup.enabled || rule.id in suppressed || rule.id in blocked) {
             return@locked null
@@ -334,7 +336,7 @@ class RuleCoordinator(
     ): List<StoredResult> = locked {
         val document = _snapshot.value.document
         val group = document.groups.firstOrNull { it.id == groupId } ?: return@locked emptyList()
-        val suppressed = ConflictResolver.suppressedBy(document)
+        val suppressed = ConflictResolver.suppressedBy(document, uidLookup)
         val blocked = blockedRules(document)
         val started = System.currentTimeMillis()
         val checkedAt = System.currentTimeMillis()
@@ -417,7 +419,7 @@ class RuleCoordinator(
     private suspend fun persistDocument(document: RuleDocument) {
         ruleStore.save(document)
         val previous = _snapshot.value
-        val suppressed = ConflictResolver.suppressedBy(document)
+        val suppressed = ConflictResolver.suppressedBy(document, uidLookup)
         val blocked = blockedRules(document)
         _snapshot.update { it.copy(document = document, suppressed = suppressed, blocked = blocked) }
         backupService?.onDocumentChanged()
