@@ -264,7 +264,7 @@ private fun levelColor(level: EventLevel): Color {
     return when (level) {
         EventLevel.ERROR -> if (dark) LatchPalette.DarkDanger else LatchPalette.Danger
         EventLevel.WARN -> if (dark) LatchPalette.DarkWarning else LatchPalette.Warning
-        EventLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+        EventLevel.INFO -> if (dark) LatchPalette.DarkSuccess else LatchPalette.Success
     }
 }
 
