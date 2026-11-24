@@ -184,6 +184,49 @@ class RuleCoordinator(
         stored
     }
 
+    /** Deletes several groups in one write, so a bulk delete produces one snapshot. */
+    suspend fun deleteGroups(groupIds: Set<String>, source: EventSource = EventSource.UI) = locked {
+        if (groupIds.isEmpty()) return@locked
+        val removed = _snapshot.value.groups.filter { it.id in groupIds }
+        if (removed.isEmpty()) return@locked
+        persistGroups(_snapshot.value.groups.filterNot { it.id in groupIds })
+        val ruleIds = removed.flatMap { it.rules }.map { it.id }.toSet()
+        if (ruleIds.isNotEmpty()) {
+            persistResults(_snapshot.value.results - ruleIds, _snapshot.value.verifiedAt)
+        }
+        eventLog.record(
+            LatchEvent(
+                level = EventLevel.INFO,
+                source = source,
+                action = EventAction.DELETE,
+                outcome = "deleted",
+                detail = "groups=${removed.size} rules=${ruleIds.size}",
+            ),
+        )
+    }
+
+    /** Deletes several rules in one write. */
+    suspend fun deleteRules(ruleIds: Set<String>, source: EventSource = EventSource.UI) = locked {
+        if (ruleIds.isEmpty()) return@locked
+        val existing = _snapshot.value.groups.flatMap { it.rules }.count { it.id in ruleIds }
+        if (existing == 0) return@locked
+        persistGroups(
+            _snapshot.value.groups.map { group ->
+                group.withRules(group.rules.filterNot { it.id in ruleIds })
+            },
+        )
+        persistResults(_snapshot.value.results - ruleIds, _snapshot.value.verifiedAt)
+        eventLog.record(
+            LatchEvent(
+                level = EventLevel.INFO,
+                source = source,
+                action = EventAction.DELETE,
+                outcome = "deleted",
+                detail = "rules=$existing",
+            ),
+        )
+    }
+
     suspend fun deleteRule(ruleId: String, source: EventSource = EventSource.UI) = locked {
         val group = _snapshot.value.groups.firstOrNull { candidate -> candidate.rules.any { it.id == ruleId } }
         val rule = group?.rules?.firstOrNull { it.id == ruleId }

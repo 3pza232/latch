@@ -1,6 +1,8 @@
 package dev.latch.rule.ui.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,11 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.data.StoredResult
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RuleRow(
     rule: Rule,
@@ -29,6 +33,8 @@ fun RuleRow(
     onClick: () -> Unit,
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: () -> Unit = {},
+    selected: Boolean = false,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val disabled = !rule.enabled || state == RuleState.DISABLED
@@ -36,7 +42,10 @@ fun RuleRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                )
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

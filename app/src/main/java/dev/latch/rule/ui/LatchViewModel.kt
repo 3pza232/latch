@@ -16,6 +16,7 @@ import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.core.stats.StatsSnapshot
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.data.StoredResult
@@ -61,6 +62,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val backupsLoading: Boolean = false,
         val restorePreview: RestorePlan? = null,
         val restoring: Boolean = false,
+        val stats: StatsSnapshot? = null,
+        val statsLoading: Boolean = false,
     ) {
         fun resultOf(ruleId: String): StoredResult? = results[ruleId]
 
@@ -203,6 +206,14 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     fun deleteRule(ruleId: String) {
         viewModelScope.launch { container.ruleCoordinator.deleteRule(ruleId) }
+    }
+
+    fun deleteGroups(groupIds: Set<String>) {
+        viewModelScope.launch { container.ruleCoordinator.deleteGroups(groupIds) }
+    }
+
+    fun deleteRules(ruleIds: Set<String>) {
+        viewModelScope.launch { container.ruleCoordinator.deleteRules(ruleIds) }
     }
 
     fun setRuleEnabled(ruleId: String, enabled: Boolean) {
@@ -406,6 +417,28 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun scopeOf(groupIds: Set<String>?): RestoreScope =
         if (groupIds == null) RestoreScope.Full else RestoreScope.Selected(groupIds)
+
+    // endregion
+
+    // region statistics
+
+    fun loadStats() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(statsLoading = true) }
+            val stats = container.statsService.refresh()
+            _uiState.update { it.copy(stats = stats, statsLoading = false) }
+        }
+    }
+
+    fun resetStats() {
+        viewModelScope.launch {
+            container.statsService.reset()
+            val stats = container.statsService.refresh()
+            _uiState.update {
+                it.copy(stats = stats, logs = emptyList(), message = "统计与日志已重置")
+            }
+        }
+    }
 
     // endregion
 

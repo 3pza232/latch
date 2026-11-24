@@ -1,5 +1,6 @@
 package dev.latch.rule.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,12 +56,18 @@ fun GroupScreen(
     onApply: () -> Unit,
     onChangeGroupInfo: (String, String) -> Unit,
     onDeleteGroup: () -> Unit,
+    onDeleteRules: (Set<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var renameDialog by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var confirmDeleteRules by remember { mutableStateOf(false) }
     val busy = state.busyGroupId == group.id
+    val selecting = selection.isNotEmpty()
+
+    BackHandler(enabled = selecting) { selection = emptySet() }
 
     Scaffold(
         modifier = modifier,
@@ -66,43 +75,59 @@ fun GroupScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(group.name)
-                        Text(
-                            "${group.rules.size} 条规则",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    if (selecting) {
+                        Text("已选择 ${selection.size} 条")
+                    } else {
+                        Column {
+                            Text(group.name)
+                            Text(
+                                "${group.rules.size} 条规则",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    if (selecting) {
+                        IconButton(onClick = { selection = emptySet() }) {
+                            Icon(Icons.Filled.Close, contentDescription = "取消选择")
+                        }
+                    } else {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
                     }
                 },
                 actions = {
-                    if (busy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    TextButton(onClick = onApply, enabled = !busy) {
-                        Text(if (busy) "应用中" else "应用")
-                    }
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "更多")
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("编辑名称与说明") },
-                            onClick = { menuOpen = false; renameDialog = true },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("删除规则组") },
-                            onClick = { menuOpen = false; confirmDelete = true },
-                        )
+                    if (selecting) {
+                        IconButton(onClick = { confirmDeleteRules = true }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "删除所选")
+                        }
+                    } else {
+                        if (busy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        TextButton(onClick = onApply, enabled = !busy) {
+                            Text(if (busy) "应用中" else "应用")
+                        }
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("编辑名称与说明") },
+                                onClick = { menuOpen = false; renameDialog = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("删除规则组") },
+                                onClick = { menuOpen = false; confirmDelete = true },
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -111,8 +136,10 @@ fun GroupScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddRule) {
-                Icon(Icons.Filled.Add, contentDescription = "添加规则到本组")
+            if (!selecting) {
+                FloatingActionButton(onClick = onAddRule) {
+                    Icon(Icons.Filled.Add, contentDescription = "添加规则到本组")
+                }
             }
         },
     ) { innerPadding ->
@@ -126,8 +153,12 @@ fun GroupScreen(
                     rule = rule,
                     state = state.stateOf(rule.id, group.enabled && rule.enabled),
                     result = state.resultOf(rule.id),
-                    onClick = { onEditRule(rule.id) },
+                    onClick = {
+                        if (selecting) selection = selection.toggle(rule.id) else onEditRule(rule.id)
+                    },
                     onToggle = { onToggleRule(rule.id, it) },
+                    onLongClick = { selection = selection.toggle(rule.id) },
+                    selected = rule.id in selection,
                 )
             }
             item { Spacer(Modifier.height(88.dp)) }
@@ -164,4 +195,25 @@ fun GroupScreen(
             },
         )
     }
+
+    if (confirmDeleteRules) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteRules = false },
+            title = { Text("删除 ${selection.size} 条规则？") },
+            text = { Text("删除后不可撤销，系统上已生效的设置不会被自动还原。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteRules = false
+                    onDeleteRules(selection)
+                    selection = emptySet()
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteRules = false }) { Text("取消") }
+            },
+        )
+    }
 }
+
+private fun Set<String>.toggle(id: String): Set<String> =
+    if (id in this) this - id else this + id

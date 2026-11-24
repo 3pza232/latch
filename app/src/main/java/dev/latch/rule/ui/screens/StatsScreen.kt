@@ -1,0 +1,335 @@
+package dev.latch.rule.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.core.stats.DayStats
+import dev.latch.rule.core.stats.StatsSnapshot
+import dev.latch.rule.ui.LatchViewModel
+import dev.latch.rule.ui.components.RelativeTime
+import dev.latch.rule.ui.theme.LatchDimens
+import dev.latch.rule.ui.theme.LatchPalette
+
+/** Counters aggregated from the event log, plus a seven-day chart. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StatsScreen(
+    state: LatchViewModel.UiState,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var confirmReset by remember { mutableStateOf(false) }
+    val stats = state.stats
+
+    Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text("统计") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = LatchDimens.ScreenPadding, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            when {
+                stats == null && state.statsLoading -> Row(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+
+                stats == null -> Text(
+                    "统计暂不可用",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                else -> {
+                    SectionTitle("概览")
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi("活跃天数", "${stats.activeDays}", "${stats.totalDays} 天记录", Modifier.weight(1f))
+                        Kpi("连续天数", "${stats.streakDays}", "有运行记录", Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi("应用次数", "${stats.applyRuns}", "下发轮次", Modifier.weight(1f))
+                        Kpi("校验次数", "${stats.verifyRuns}", "校验轮次", Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi("修复成功", "${stats.repaired}", "条规则", Modifier.weight(1f))
+                        Kpi("修复失败", "${stats.failed}", "条规则", Modifier.weight(1f))
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi(
+                            "修复成功率",
+                            stats.repairSuccessRate?.let { "$it%" } ?: "—",
+                            "成功 / (成功 + 失败)",
+                            Modifier.weight(1f),
+                        )
+                        Kpi("漂移检出", "${stats.drifted}", "条规则", Modifier.weight(1f))
+                    }
+
+                    SectionTitle("最近 7 天")
+                    WeekChart(stats.recentDays)
+
+                    SectionTitle("规则状态")
+                    RuleDistribution(state)
+
+                    SectionTitle("其他")
+                    InfoRow("最近校验", RelativeTime.text(state.verifiedAt))
+                    InfoRow("首次记录", stats.firstEventAt?.let(::formatDate) ?: "暂无")
+                    Text(
+                        "统计基于事件日志聚合；清空日志不会重置这里已归档的天数，重置统计会同时清空日志。",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = { confirmReset = true }) {
+                        Text("重置统计与日志", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text("重置统计？") },
+            text = { Text("将清空累计统计与全部运行日志，规则本身不受影响。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmReset = false
+                    onReset()
+                }) { Text("重置") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) { Text("取消") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun Kpi(title: String, value: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(value, style = MaterialTheme.typography.headlineSmall)
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Bar height is the number of apply/verify/repair runs that day; the color marks
+ * whether the day also contained drifted or failed rules.
+ */
+@Composable
+private fun WeekChart(days: List<DayStats>) {
+    val max = remember(days) { days.maxOfOrNull { it.runs }?.coerceAtLeast(1) ?: 1 }
+    val dark = isSystemInDarkTheme()
+    val goodColor = if (dark) LatchPalette.DarkSuccess else LatchPalette.Success
+    val badColor = if (dark) LatchPalette.DarkDanger else LatchPalette.Danger
+    val hasData = days.any { it.runs > 0 }
+
+    Column {
+        if (!hasData) {
+            Text(
+                "最近 7 天没有记录",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                days.forEach { day ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom,
+                    ) {
+                        if (day.runs > 0) {
+                            val height = (110f * day.runs / max).dp
+                            Box(
+                                Modifier
+                                    .width(20.dp)
+                                    .height(height)
+                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                    .background(if (day.bad > 0) badColor else goodColor),
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                days.forEach { day ->
+                    Text(
+                        day.date.takeLast(5),
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Legend(goodColor, "运行正常")
+                Legend(badColor, "当天有失败 / 漂移")
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "柱高为当日应用、校验、修复的轮次",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Legend(color: androidx.compose.ui.graphics.Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun RuleDistribution(state: LatchViewModel.UiState) {
+    var total = 0
+    var applied = 0
+    var drifted = 0
+    var failed = 0
+    var pending = 0
+    var disabled = 0
+    state.groups.forEach { group ->
+        group.rules.forEach { rule ->
+            total++
+            if (!group.enabled || !rule.enabled) {
+                disabled++
+                return@forEach
+            }
+            when (state.results[rule.id]?.state) {
+                RuleState.APPLIED -> applied++
+                RuleState.DRIFTED -> drifted++
+                RuleState.FAILED -> failed++
+                else -> pending++
+            }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        InfoRow("规则总数", "$total")
+        InfoRow("已生效", "$applied")
+        InfoRow("漂移", "$drifted")
+        InfoRow("失败", "$failed")
+        InfoRow("待应用", "$pending")
+        InfoRow("未启用", "$disabled")
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium)
+}
+
+private fun formatDate(timestamp: Long): String =
+    java.time.Instant.ofEpochMilli(timestamp)
+        .atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm"))

@@ -28,6 +28,7 @@ import dev.latch.rule.ui.screens.HomeScreen
 import dev.latch.rule.ui.screens.LogsScreen
 import dev.latch.rule.ui.screens.RuleEditorScreen
 import dev.latch.rule.ui.screens.SettingsScreen
+import dev.latch.rule.ui.screens.StatsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -50,6 +51,7 @@ fun LatchApp(
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var logsOpen by rememberSaveable { mutableStateOf(false) }
     var backupsOpen by rememberSaveable { mutableStateOf(false) }
+    var statsOpen by rememberSaveable { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -88,14 +90,20 @@ fun LatchApp(
         if (backupsOpen) viewModel.loadBackups()
     }
 
+    LaunchedEffect(statsOpen) {
+        if (statsOpen) viewModel.loadStats()
+    }
+
     BackHandler(enabled = editorOpen) { editorOpen = false }
     BackHandler(enabled = !editorOpen && logsOpen) { logsOpen = false }
     BackHandler(enabled = !editorOpen && !logsOpen && backupsOpen) { backupsOpen = false }
-    BackHandler(enabled = !editorOpen && !logsOpen && !backupsOpen && settingsOpen) {
+    BackHandler(enabled = !editorOpen && !logsOpen && !backupsOpen && statsOpen) { statsOpen = false }
+    BackHandler(enabled = !editorOpen && !logsOpen && !backupsOpen && !statsOpen && settingsOpen) {
         settingsOpen = false
     }
     BackHandler(
-        enabled = !editorOpen && !logsOpen && !backupsOpen && !settingsOpen && selectedGroupId != null,
+        enabled = !editorOpen && !logsOpen && !backupsOpen && !statsOpen &&
+            !settingsOpen && selectedGroupId != null,
     ) {
         selectedGroupId = null
     }
@@ -145,6 +153,13 @@ fun LatchApp(
                 onRestore = viewModel::restoreBackup,
             )
 
+            statsOpen -> StatsScreen(
+                state = state,
+                onBack = { statsOpen = false },
+                onRefresh = viewModel::loadStats,
+                onReset = viewModel::resetStats,
+            )
+
             settingsOpen -> SettingsScreen(
                 state = state,
                 onBack = { settingsOpen = false },
@@ -165,6 +180,7 @@ fun LatchApp(
                 onStopAgent = viewModel::stopAgentGateway,
                 onOpenLogs = { logsOpen = true },
                 onOpenBackups = { backupsOpen = true },
+                onOpenStats = { statsOpen = true },
             )
 
             selectedGroup != null -> GroupScreen(
@@ -188,6 +204,7 @@ fun LatchApp(
                     viewModel.deleteGroup(selectedGroup.id)
                     selectedGroupId = null
                 },
+                onDeleteRules = viewModel::deleteRules,
             )
 
             else -> HomeScreen(
@@ -201,6 +218,7 @@ fun LatchApp(
                 onVerifyAll = { viewModel.verifyAll() },
                 onImportJson = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
                 onOpenSettings = { settingsOpen = true },
+                onDeleteGroups = viewModel::deleteGroups,
             )
         }
 

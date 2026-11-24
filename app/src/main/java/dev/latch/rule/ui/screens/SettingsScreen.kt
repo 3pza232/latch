@@ -60,6 +60,7 @@ fun SettingsScreen(
     onStopAgent: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenBackups: () -> Unit,
+    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -204,6 +205,12 @@ fun SettingsScreen(
                 subtitle = "自动保存规则快照，可按规则组恢复",
                 actionLabel = "查看",
                 onAction = onOpenBackups,
+            )
+            AgentRow(
+                title = "统计",
+                subtitle = "应用与修复次数、活跃天数、最近 7 天",
+                actionLabel = "查看",
+                onAction = onOpenStats,
             )
 
             SectionTitle("数据")

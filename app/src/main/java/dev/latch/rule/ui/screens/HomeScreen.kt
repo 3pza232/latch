@@ -1,5 +1,6 @@
 package dev.latch.rule.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,8 +12,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -21,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -50,29 +55,48 @@ fun HomeScreen(
     onVerifyAll: () -> Unit,
     onImportJson: () -> Unit,
     onOpenSettings: () -> Unit,
+    onDeleteGroups: (Set<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var createDialog by remember { mutableStateOf(false) }
+    var selection by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val selecting = selection.isNotEmpty()
+
+    BackHandler(enabled = selecting) { selection = emptySet() }
 
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Latch") },
-                actions = {
-                    IconButton(onClick = onVerifyAll, enabled = !state.verifyingAll) {
-                        if (state.verifyingAll) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(Icons.Filled.Refresh, contentDescription = "校验全部")
+                title = { Text(if (selecting) "已选择 ${selection.size} 个" else "Latch") },
+                navigationIcon = {
+                    if (selecting) {
+                        IconButton(onClick = { selection = emptySet() }) {
+                            Icon(Icons.Filled.Close, contentDescription = "取消选择")
                         }
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "设置")
+                },
+                actions = {
+                    if (selecting) {
+                        IconButton(onClick = { confirmDelete = true }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "删除所选")
+                        }
+                    } else {
+                        IconButton(onClick = onVerifyAll, enabled = !state.verifyingAll) {
+                            if (state.verifyingAll) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(Icons.Filled.Refresh, contentDescription = "校验全部")
+                            }
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Filled.Settings, contentDescription = "设置")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -81,12 +105,14 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { createDialog = true },
-                shape = RoundedCornerShape(18.dp),
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("新建规则组") },
-            )
+            if (!selecting) {
+                ExtendedFloatingActionButton(
+                    onClick = { createDialog = true },
+                    shape = RoundedCornerShape(18.dp),
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("新建规则组") },
+                )
+            }
         },
     ) { innerPadding ->
         LazyColumn(
@@ -119,8 +145,16 @@ fun HomeScreen(
                         group = group,
                         summary = state.summary(group),
                         verifiedAt = state.verifiedAt,
-                        onClick = { onGroupClick(group.id) },
+                        onClick = {
+                            if (selecting) {
+                                selection = selection.toggle(group.id)
+                            } else {
+                                onGroupClick(group.id)
+                            }
+                        },
                         onToggle = { onGroupToggle(group.id, it) },
+                        onLongClick = { selection = selection.toggle(group.id) },
+                        selected = group.id in selection,
                     )
                 }
             }
@@ -139,4 +173,26 @@ fun HomeScreen(
             onDismiss = { createDialog = false },
         )
     }
+
+    if (confirmDelete) {
+        val ruleCount = state.groups.filter { it.id in selection }.sumOf { it.rules.size }
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("删除 ${selection.size} 个规则组？") },
+            text = { Text("将同时删除其中的 $ruleCount 条规则，系统上已生效的设置不会被自动还原。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    onDeleteGroups(selection)
+                    selection = emptySet()
+                }) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+            },
+        )
+    }
 }
+
+private fun Set<String>.toggle(id: String): Set<String> =
+    if (id in this) this - id else this + id
