@@ -104,6 +104,17 @@ class BackupServiceTest {
     }
 
     @Test
+    fun `a new hour replaces the previous hourly snapshot`() = runBlocking {
+        service.ensureBoundaries()
+        now += 60 * 60_000
+        service.ensureBoundaries()
+        now += 60 * 60_000
+        service.ensureBoundaries()
+
+        assertEquals(1, store.list().count { it.reason == BackupReason.HOURLY })
+    }
+
+    @Test
     fun `rapid edits are coalesced but later edits are captured`() = runBlocking {
         service.ensureBoundaries()
         ruleStore.save(RuleDocument(groups = listOf(group("通知"))))

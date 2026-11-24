@@ -18,7 +18,6 @@ class VerifyWorker(
 
     override suspend fun doWork(): Result {
         val container = (applicationContext as LatchApplication).container
-        container.backupService.ensureBoundaries()
         if (container.privilegeBroker.status() != PrivilegeStatus.READY) {
             container.eventLog.record(
                 LatchEvent(

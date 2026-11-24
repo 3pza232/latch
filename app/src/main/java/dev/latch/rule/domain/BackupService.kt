@@ -100,6 +100,7 @@ class BackupService(
         }
         if (!dailyExists && snapshotNow(BackupReason.DAILY) != null) {
             created++
+            trim(BackupReason.DAILY, RetentionPolicy.MAX_DAILY)
             metas = store.list()
         }
 
@@ -111,8 +112,18 @@ class BackupService(
         }
         if (!hourlyCovered && snapshotNow(BackupReason.HOURLY) != null) {
             created++
+            trim(BackupReason.HOURLY, RetentionPolicy.MAX_HOURLY)
         }
         created
+    }
+
+    /** Keeps the newest [keep] snapshots of one kind, so the directory stays bounded. */
+    private fun trim(reason: BackupReason, keep: Int) {
+        store.list()
+            .filter { it.reason == reason }
+            .sortedByDescending { it.createdAt }
+            .drop(keep)
+            .forEach { store.delete(it.id) }
     }
 
     /** Deletes the given snapshots; returns how many existed. */
