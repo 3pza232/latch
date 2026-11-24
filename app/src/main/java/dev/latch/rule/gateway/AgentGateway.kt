@@ -8,6 +8,7 @@ import dev.latch.rule.core.log.EventLevel
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
+import dev.latch.rule.core.rules.TargetPolicy
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
@@ -34,6 +35,7 @@ class AgentGateway(
     private val backupService: BackupService,
     private val restoreService: RestoreService,
     private val statsService: StatsService,
+    private val targetPolicy: TargetPolicy,
 ) {
 
     enum class Status { IDLE, WAITING, CONNECTED, ERROR }
@@ -44,6 +46,8 @@ class AgentGateway(
         val address: String? = null,
         val port: Int = 0,
         val clients: Int = 0,
+        /** Pairing attempts are refused until this time after too many failures. */
+        val lockedUntil: Long = 0L,
         /** Why the gateway could not start; shown instead of an idle panel. */
         val error: String? = null,
     )
@@ -61,14 +65,16 @@ class AgentGateway(
     private var token: String? = null
     private var currentCode: String? = null
     private var failures = 0
+    private var lockedUntil = 0L
 
     /** Starts listening; returns false and publishes [Status.ERROR] when the port is unusable. */
     @Synchronized
     fun start(): Boolean {
         if (server != null) return true
         failures = 0
+        lockedUntil = 0L
         token = null
-        currentCode = "%06d".format(random.nextInt(1_000_000))
+        currentCode = newCode()
         val created = GatewayServer(
             this,
             coordinator,
@@ -78,6 +84,7 @@ class AgentGateway(
             backupService,
             restoreService,
             statsService,
+            targetPolicy,
         )
         val started = runCatching { created.start(2_000, false) }
         if (started.isFailure) {
@@ -116,24 +123,45 @@ class AgentGateway(
         if (wasRunning) record(EventLevel.INFO, EventAction.GATEWAY_STOP, "stopped")
     }
 
-    /** Returns (token, error). Consumed code is invalidated after a successful pair. */
+    /** Returns (token, error). The code is single-use and is invalidated on success. */
     @Synchronized
     fun pair(input: String): Pair<String?, String?> {
+        val now = System.currentTimeMillis()
+        if (now < lockedUntil) {
+            return null to "尝试次数过多，请稍后重试"
+        }
         val expected = currentCode ?: return null to "gateway is not waiting for a client"
-        if (failures >= MAX_FAILURES) return null to "too many attempts, restart pairing"
         if (input != expected) {
             failures++
-            if (failures >= MAX_FAILURES) currentCode = "%06d".format(random.nextInt(1_000_000))
+            if (failures >= MAX_FAILURES) {
+                // Rotate the code and pause instead of locking the gateway forever.
+                failures = 0
+                lockedUntil = now + LOCKOUT_MS
+                currentCode = newCode()
+                _state.value = _state.value.copy(code = currentCode, lockedUntil = lockedUntil)
+                record(EventLevel.WARN, EventAction.PAIR_FAILED, "locked")
+                return null to "尝试次数过多，配对码已更换"
+            }
             record(EventLevel.WARN, EventAction.PAIR_FAILED, "rejected", detail = "failures=$failures")
             return null to "invalid pairing code"
         }
         val newToken = ByteArray(32).also { random.nextBytes(it) }
             .joinToString("") { "%02x".format(it) }
         token = newToken
-        _state.value = _state.value.copy(status = Status.CONNECTED, clients = 1)
+        currentCode = null
+        failures = 0
+        lockedUntil = 0L
+        _state.value = _state.value.copy(
+            status = Status.CONNECTED,
+            clients = 1,
+            code = null,
+            lockedUntil = 0L,
+        )
         record(EventLevel.INFO, EventAction.PAIR, "connected")
         return newToken to null
     }
+
+    private fun newCode(): String = "%06d".format(random.nextInt(1_000_000))
 
     @Synchronized
     fun isAuthorized(header: String?): Boolean {
@@ -174,5 +202,6 @@ class AgentGateway(
 
     private companion object {
         const val MAX_FAILURES = 5
+        const val LOCKOUT_MS = 30_000L
     }
 }

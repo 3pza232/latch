@@ -14,6 +14,9 @@ enum class LatchErrorCode {
 
     /** The command succeeded but its output could not be interpreted. */
     PARSE_FAILED,
+
+    /** The command did not finish in time. */
+    TIMEOUT,
     UNKNOWN,
 }
 

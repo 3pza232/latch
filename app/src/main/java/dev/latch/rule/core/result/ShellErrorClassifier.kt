@@ -23,6 +23,7 @@ object ShellErrorClassifier {
     fun classify(result: ShellResult): LatchError {
         val output = result.stderr.ifBlank { result.stdout }.trim()
         val code = when {
+            output.contains("命令超时") -> LatchErrorCode.TIMEOUT
             result.exitCode == 255 -> LatchErrorCode.NO_PRIVILEGE
             containsAny(output, POLICY_SIGNALS) -> LatchErrorCode.POLICY_BLOCKED
             output.contains("SecurityException", ignoreCase = true) -> LatchErrorCode.SHELL_DENIED

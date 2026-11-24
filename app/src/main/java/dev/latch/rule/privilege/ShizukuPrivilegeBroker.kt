@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import java.lang.reflect.Method
 
@@ -27,12 +28,31 @@ class ShizukuPrivilegeBroker : PrivilegeBroker {
                 val stderr = async(Dispatchers.IO) {
                     process.errorStream.bufferedReader().use { it.readText() }
                 }
-                val stdout = process.inputStream.bufferedReader().use { it.readText() }
-                ShellResult(process.waitFor(), stdout, stderr.await())
+                val stdout = async(Dispatchers.IO) {
+                    process.inputStream.bufferedReader().use { it.readText() }
+                }
+                // A hung command must not block the rule pipeline forever.
+                val exitCode = withTimeoutOrNull(TIMEOUT_MS) {
+                    withContext(Dispatchers.IO) { process.waitFor() }
+                }
+                if (exitCode == null) {
+                    process.destroyForcibly()
+                    ShellResult(
+                        exitCode = -1,
+                        stdout = "",
+                        stderr = "命令超时（${TIMEOUT_MS / 1_000} 秒）",
+                    )
+                } else {
+                    ShellResult(exitCode, stdout.await(), stderr.await())
+                }
             }
         }.getOrElse { error ->
             ShellResult(exitCode = -1, stdout = "", stderr = error.message.orEmpty())
         }
+    }
+
+    private companion object {
+        const val TIMEOUT_MS = 15_000L
     }
 }
 
