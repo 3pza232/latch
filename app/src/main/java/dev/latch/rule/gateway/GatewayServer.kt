@@ -8,6 +8,8 @@ import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.core.rules.RuleValidation
+import dev.latch.rule.core.rules.TargetPolicy
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.StatsService
@@ -30,6 +32,7 @@ class GatewayServer(
     private val backupService: BackupService,
     private val restoreService: RestoreService,
     private val statsService: StatsService,
+    private val targetPolicy: TargetPolicy,
 ) : NanoHTTPD(EPHEMERAL_PORT) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -364,6 +367,13 @@ class GatewayServer(
         val document = runCatching { RuleCodec.decode(text) }.getOrElse {
             return json(Response.Status.BAD_REQUEST, error(it.message ?: "invalid rule document"))
         }
+        val problems = RuleValidation.validate(document, targetPolicy)
+        if (problems.isNotEmpty()) {
+            return json(
+                Response.Status.BAD_REQUEST,
+                error(problems.take(5).joinToString("；")).put("problems", JSONArray(problems)),
+            )
+        }
         runBlocking { coordinator.importDocument(document, EventSource.GATEWAY) }
         return json(
             Response.Status.OK,
@@ -386,6 +396,12 @@ class GatewayServer(
         val normalized = if (rule.id.isBlank()) rule.copy(id = UUID.randomUUID().toString()) else rule
         if (groupId.isBlank() || coordinator.snapshot.value.groups.none { it.id == groupId }) {
             return json(Response.Status.BAD_REQUEST, error("unknown group"))
+        }
+        if (!RuleValidation.isValidPackage(normalized.targetPackage)) {
+            return json(Response.Status.BAD_REQUEST, error("invalid target package"))
+        }
+        targetPolicy.blockReason(normalized)?.let { reason ->
+            return json(Response.Status.BAD_REQUEST, error(reason))
         }
 
         val conflicts = coordinator.conflictsFor(groupId, normalized)

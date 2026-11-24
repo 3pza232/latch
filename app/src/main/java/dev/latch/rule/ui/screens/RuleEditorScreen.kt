@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +107,13 @@ fun RuleEditorScreen(
     var appEnabled by rememberSaveable {
         mutableStateOf((initialCapability as? Capability.SetEnabled)?.enabled ?: false)
     }
+    // The app list may load after the editor opens; fill the label once it does.
+    LaunchedEffect(apps) {
+        if (appLabel.isBlank() && packageName.isNotBlank()) {
+            appLabel = apps.firstOrNull { it.packageName == packageName }?.label.orEmpty()
+        }
+    }
+
     var pickerOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

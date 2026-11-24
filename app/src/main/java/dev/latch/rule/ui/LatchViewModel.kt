@@ -18,6 +18,7 @@ import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.rules.RuleConflict
+import dev.latch.rule.core.rules.RuleValidation
 import dev.latch.rule.core.stats.StatsSnapshot
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.RuleCodec
@@ -26,6 +27,7 @@ import dev.latch.rule.data.VerificationSnapshot
 import dev.latch.rule.gateway.AgentGateway
 import dev.latch.rule.gateway.AgentGatewayService
 import dev.latch.rule.privilege.PrivilegeStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +47,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val pending: Int,
         val disabled: Int,
         val suppressed: Int = 0,
+        val blocked: Int = 0,
     )
 
     /** A save waiting for the user to choose how to resolve a conflict. */
@@ -76,6 +79,8 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val statsLoading: Boolean = false,
         /** rule id -> name of the rule overriding it. */
         val suppressedBy: Map<String, String> = emptyMap(),
+        /** rule id -> reason the target policy skips it. */
+        val blocked: Map<String, String> = emptyMap(),
         val pendingConflict: PendingConflict? = null,
         /** Changes when a rule save completes, so the editor can close. */
         val savedRuleToken: Long = 0L,
@@ -99,6 +104,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             var pending = 0
             var disabled = 0
             var suppressed = 0
+            var blockedCount = 0
             group.rules.forEach { rule ->
                 if (!rule.enabled) {
                     disabled++
@@ -106,6 +112,10 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                 }
                 if (suppressedBy.containsKey(rule.id)) {
                     suppressed++
+                    return@forEach
+                }
+                if (blocked.containsKey(rule.id)) {
+                    blockedCount++
                     return@forEach
                 }
                 when (results[rule.id]?.state) {
@@ -120,12 +130,13 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                 failed > 0 -> RuleState.FAILED
                 drifted > 0 -> RuleState.DRIFTED
                 pending > 0 -> RuleState.PENDING
-                suppressed > 0 -> RuleState.PENDING
+                suppressed > 0 || blockedCount > 0 -> RuleState.PENDING
                 applied > 0 -> RuleState.APPLIED
                 else -> RuleState.DISABLED
             }
             return GroupSummary(
-                state, group.rules.size, applied, drifted, failed, pending, disabled, suppressed,
+                state, group.rules.size, applied, drifted, failed, pending, disabled,
+                suppressed, blockedCount,
             )
         }
     }
@@ -165,6 +176,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                         verifiedAt = snapshot.verifiedAt,
                         loading = snapshot.loading,
                         suppressedBy = suppressedBy,
+                        blocked = snapshot.blocked,
                     )
                 }
             }
@@ -232,6 +244,10 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
      * [UiState.pendingConflict] is set so the user can choose a side.
      */
     fun upsertRule(groupId: String, rule: Rule) {
+        container.targetPolicy.blockReason(rule)?.let { reason ->
+            _uiState.update { it.copy(message = "未保存：$reason") }
+            return
+        }
         viewModelScope.launch {
             val conflicts = container.ruleCoordinator.conflictsFor(groupId, rule)
             if (conflicts.isEmpty()) {
@@ -318,12 +334,15 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         }
         viewModelScope.launch {
             _uiState.update { it.copy(busyGroupId = groupId) }
-            val results = container.ruleCoordinator.applyGroup(groupId)
-            _uiState.update {
-                it.copy(
-                    busyGroupId = null,
-                    message = summarize(group.name, results),
-                )
+            try {
+                val results = container.ruleCoordinator.applyGroup(groupId)
+                _uiState.update { it.copy(message = summarize(group.name, results)) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update { it.copy(message = "应用失败：${error.message ?: "未知错误"}") }
+            } finally {
+                _uiState.update { it.copy(busyGroupId = null) }
             }
         }
     }
@@ -332,12 +351,17 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         if (_uiState.value.verifyingAll) return
         viewModelScope.launch {
             _uiState.update { it.copy(verifyingAll = true) }
-            val snapshot = container.ruleCoordinator.verifyAll()
-            _uiState.update {
-                it.copy(
-                    verifyingAll = false,
-                    message = if (announce) summarizeAll(snapshot) else it.message,
-                )
+            try {
+                val snapshot = container.ruleCoordinator.verifyAll()
+                if (announce) {
+                    _uiState.update { it.copy(message = summarizeAll(snapshot)) }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                _uiState.update { it.copy(message = "校验失败：${error.message ?: "未知错误"}") }
+            } finally {
+                _uiState.update { it.copy(verifyingAll = false) }
             }
         }
     }
@@ -391,6 +415,16 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             _uiState.update { it.copy(message = "文件中没有规则组") }
             return
         }
+        val problems = RuleValidation.validate(document, container.targetPolicy)
+        if (problems.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    message = "导入被拒绝：" + problems.take(3).joinToString("；") +
+                        if (problems.size > 3) "…" else "",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             container.ruleCoordinator.importDocument(document)
             _uiState.update {
@@ -438,8 +472,12 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun loadLogs() {
         viewModelScope.launch {
             _uiState.update { it.copy(logsLoading = true) }
-            val logs = container.eventLog.recent(LOG_PAGE_SIZE)
-            _uiState.update { it.copy(logs = logs, logsLoading = false) }
+            try {
+                val logs = container.eventLog.recent(LOG_PAGE_SIZE)
+                _uiState.update { it.copy(logs = logs) }
+            } finally {
+                _uiState.update { it.copy(logsLoading = false) }
+            }
         }
     }
 
@@ -458,8 +496,12 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun loadBackups() {
         viewModelScope.launch {
             _uiState.update { it.copy(backupsLoading = true) }
-            val backups = container.backupService.list()
-            _uiState.update { it.copy(backups = backups, backupsLoading = false) }
+            try {
+                val backups = container.backupService.list()
+                _uiState.update { it.copy(backups = backups) }
+            } finally {
+                _uiState.update { it.copy(backupsLoading = false) }
+            }
         }
     }
 
@@ -485,18 +527,22 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun restoreBackup(snapshotId: String, groupIds: Set<String>?, apply: Boolean) {
         viewModelScope.launch {
             _uiState.update { it.copy(restoring = true) }
-            val plan = container.restoreService.restore(snapshotId, scopeOf(groupIds), apply)
-            val message = when {
-                plan == null -> "快照不存在"
-                plan.affectedGroupIds.isEmpty() -> "没有需要恢复的改动"
-                else -> buildString {
-                    append("已恢复 ").append(plan.groups.size).append(" 个组、")
-                    append(plan.ruleCount).append(" 条规则")
-                    if (apply) append("，并已应用")
+            try {
+                val plan = container.restoreService.restore(snapshotId, scopeOf(groupIds), apply)
+                val message = when {
+                    plan == null -> "快照不存在"
+                    plan.affectedGroupIds.isEmpty() -> "没有需要恢复的改动"
+                    else -> buildString {
+                        append("已恢复 ").append(plan.groups.size).append(" 个组、")
+                        append(plan.ruleCount).append(" 条规则")
+                        if (apply) append("，并已应用")
+                    }
                 }
+                _uiState.update { it.copy(restorePreview = null, message = message) }
+            } finally {
+                _uiState.update { it.copy(restoring = false) }
+                loadBackups()
             }
-            _uiState.update { it.copy(restoring = false, restorePreview = null, message = message) }
-            loadBackups()
         }
     }
 
@@ -510,8 +556,12 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun loadStats() {
         viewModelScope.launch {
             _uiState.update { it.copy(statsLoading = true) }
-            val stats = container.statsService.refresh()
-            _uiState.update { it.copy(stats = stats, statsLoading = false) }
+            try {
+                val stats = container.statsService.refresh()
+                _uiState.update { it.copy(stats = stats) }
+            } finally {
+                _uiState.update { it.copy(statsLoading = false) }
+            }
         }
     }
 

@@ -159,7 +159,8 @@ fun GroupScreen(
                     onToggle = { onToggleRule(rule.id, it) },
                     onLongClick = { selection = selection.toggle(rule.id) },
                     selected = rule.id in selection,
-                    suppressedBy = state.suppressedBy[rule.id],
+                    notice = state.suppressedBy[rule.id]?.let { "被「$it」覆盖" }
+                        ?: state.blocked[rule.id],
                 )
             }
             item { Spacer(Modifier.height(88.dp)) }

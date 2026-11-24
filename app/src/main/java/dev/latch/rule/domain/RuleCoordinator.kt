@@ -11,6 +11,7 @@ import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.rules.ConflictResolver
 import dev.latch.rule.core.rules.RuleConflict
+import dev.latch.rule.core.rules.TargetPolicy
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.data.RuleLoadResult
@@ -44,6 +45,7 @@ class RuleCoordinator(
     private val eventLog: EventLog = EventLog.Noop,
     private val backupService: BackupService? = null,
     private val autoReapply: () -> Boolean = { true },
+    private val targetPolicy: TargetPolicy = TargetPolicy(TargetPolicy.ALWAYS_PROTECTED),
 ) {
 
     data class Snapshot(
@@ -55,6 +57,8 @@ class RuleCoordinator(
         val loadError: String? = null,
         /** rule id -> id of the rule that overrides it. */
         val suppressed: Map<String, String> = emptyMap(),
+        /** rule id -> reason it is skipped by the target policy. */
+        val blocked: Map<String, String> = emptyMap(),
     ) {
         val groups: List<RuleGroup> get() = document.groups
         val overrides: List<RuleOverride> get() = document.overrides
@@ -75,8 +79,14 @@ class RuleCoordinator(
             loading = false,
             loadError = (loaded as? RuleLoadResult.Corrupt)?.toMessage(),
             suppressed = ConflictResolver.suppressedBy(document),
+            blocked = blockedRules(document),
         )
     }
+
+    private fun blockedRules(document: RuleDocument): Map<String, String> =
+        document.rules().mapNotNull { rule ->
+            targetPolicy.blockReason(rule)?.let { rule.id to it }
+        }.toMap()
 
     private fun RuleLoadResult.Corrupt.toMessage(): String {
         val preserved = preservedAs?.let { "已保留副本 $it。" }.orEmpty()
@@ -219,7 +229,10 @@ class RuleCoordinator(
             ),
         )
         val suppressed = ConflictResolver.suppressedBy(updated)
-        if (!rule.enabled || !updatedGroup.enabled || rule.id in suppressed) return@locked null
+        val blocked = blockedRules(updated)
+        if (!rule.enabled || !updatedGroup.enabled || rule.id in suppressed || rule.id in blocked) {
+            return@locked null
+        }
 
         val checkedAt = System.currentTimeMillis()
         val result = engine.apply(rule)
@@ -324,10 +337,11 @@ class RuleCoordinator(
         val document = _snapshot.value.document
         val group = document.groups.firstOrNull { it.id == groupId } ?: return@locked emptyList()
         val suppressed = ConflictResolver.suppressedBy(document)
+        val blocked = blockedRules(document)
         val started = System.currentTimeMillis()
         val checkedAt = System.currentTimeMillis()
         val outcomes = group.rules
-            .filter { it.enabled && it.id !in suppressed }
+            .filter { it.enabled && it.id !in suppressed && it.id !in blocked }
             .map { rule -> rule to engine.apply(rule) }
         outcomes.forEach { (rule, result) -> eventLog.record(result.toEvent(source, EventAction.APPLY, group, rule)) }
         eventLog.record(
@@ -406,7 +420,8 @@ class RuleCoordinator(
         ruleStore.save(document)
         val previous = _snapshot.value
         val suppressed = ConflictResolver.suppressedBy(document)
-        _snapshot.update { it.copy(document = document, suppressed = suppressed) }
+        val blocked = blockedRules(document)
+        _snapshot.update { it.copy(document = document, suppressed = suppressed, blocked = blocked) }
         backupService?.onDocumentChanged()
         reapplyUnsuppressed(previous, document, suppressed)
     }
@@ -429,6 +444,7 @@ class RuleCoordinator(
         var results = _snapshot.value.results
         newlyActive.forEach { ruleId ->
             if (!document.isActive(ruleId)) return@forEach
+            if (ruleId in _snapshot.value.blocked) return@forEach
             val rule = document.findRule(ruleId) ?: return@forEach
             val group = document.groupOf(ruleId)
             eventLog.record(

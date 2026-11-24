@@ -60,6 +60,14 @@ fun GroupStatusSummary(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (summary.blocked > 0) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${summary.blocked} 受保护",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (summary.disabled > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(

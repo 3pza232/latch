@@ -7,6 +7,7 @@ import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.rules.ConflictResolver
+import dev.latch.rule.core.rules.TargetPolicy
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
@@ -25,6 +26,7 @@ class VerifyService(
     private val resultStore: ResultStore,
     private val engine: RuleEngine,
     private val eventLog: EventLog = EventLog.Noop,
+    private val targetPolicy: TargetPolicy = TargetPolicy(TargetPolicy.ALWAYS_PROTECTED),
 ) {
 
     data class RepairReport(
@@ -102,7 +104,9 @@ class VerifyService(
         val document = (ruleStore.load() as? RuleLoadResult.Success)?.document ?: return emptyList()
         val suppressed = ConflictResolver.suppressedBy(document)
         return document.groups.filter { it.enabled }.flatMap { group ->
-            group.rules.filter { it.enabled && it.id !in suppressed }.map { group to it }
+            group.rules
+                .filter { it.enabled && it.id !in suppressed && targetPolicy.blockReason(it) == null }
+                .map { group to it }
         }
     }
 }

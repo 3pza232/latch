@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.ContentResolver
 import android.content.Context
 import dev.latch.rule.core.log.EventLog
+import dev.latch.rule.core.rules.TargetPolicy
 import dev.latch.rule.data.BackupStore
 import dev.latch.rule.data.FileBackupStore
 import dev.latch.rule.data.FileEventLog
@@ -11,6 +12,7 @@ import dev.latch.rule.data.FileResultStore
 import dev.latch.rule.data.FileRuleStore
 import dev.latch.rule.data.FileStatsStore
 import dev.latch.rule.data.InstalledApps
+import dev.latch.rule.data.ProtectedTargets
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.PreferencesSettingsStore
 import dev.latch.rule.data.ResultStore
@@ -62,15 +64,24 @@ class AppContainer(context: Context) {
     val backupService: BackupService = BackupService(backupStore, ruleStore, eventLog = eventLog)
     val statsStore: StatsStore = FileStatsStore(File(appContext.filesDir, STATS_DIRECTORY))
     val statsService: StatsService = StatsService(fileEventLog, statsStore)
-    val verifyService: VerifyService = VerifyService(ruleStore, resultStore, ruleEngine, eventLog)
-    val ruleCoordinator: RuleCoordinator = RuleCoordinator(
+    val targetPolicy: TargetPolicy = TargetPolicy(ProtectedTargets(appContext).packages())
+    val verifyService: VerifyService = VerifyService(
         ruleStore,
         resultStore,
         ruleEngine,
-        verifyService,
         eventLog,
-        backupService,
-    ) { settingsStore.load().autoReapplyOnUnsuppress }
+        targetPolicy,
+    )
+    val ruleCoordinator: RuleCoordinator = RuleCoordinator(
+        ruleStore = ruleStore,
+        resultStore = resultStore,
+        engine = ruleEngine,
+        verifyService = verifyService,
+        eventLog = eventLog,
+        backupService = backupService,
+        autoReapply = { settingsStore.load().autoReapplyOnUnsuppress },
+        targetPolicy = targetPolicy,
+    )
     val restoreService: RestoreService = RestoreService(backupService, ruleCoordinator, eventLog)
     val agentGateway: AgentGateway = AgentGateway(
         appContext,
@@ -80,6 +91,7 @@ class AppContainer(context: Context) {
         backupService,
         restoreService,
         statsService,
+        targetPolicy,
     )
     val driftNotifier: DriftNotifier = DriftNotifier(appContext)
     val installedApps: InstalledApps = InstalledApps(appContext)
