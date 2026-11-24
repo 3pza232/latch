@@ -76,6 +76,36 @@ class RuleCoordinatorTest {
     }
 
     @Test
+    fun `bulk group delete removes every selected group and its results`() = runBlocking {
+        val harness = harness()
+        val first = harness.coordinator.createGroup("一")
+        val second = harness.coordinator.createGroup("二")
+        harness.coordinator.upsertRule(first.id, rule)
+        harness.coordinator.upsertRule(second.id, rule.copy(id = "rule-2"))
+
+        harness.coordinator.deleteGroups(setOf(first.id, second.id))
+
+        assertTrue(harness.coordinator.snapshot.value.groups.isEmpty())
+        assertTrue(harness.coordinator.snapshot.value.results.isEmpty())
+        assertEquals("groups=2 rules=2", harness.events.all().last().detail)
+    }
+
+    @Test
+    fun `bulk rule delete removes selected rules only`() = runBlocking {
+        val harness = harness()
+        val group = harness.coordinator.createGroup("组")
+        val keep = rule.copy(id = "keep")
+        harness.coordinator.upsertRule(group.id, keep)
+        harness.coordinator.upsertRule(group.id, rule)
+
+        harness.coordinator.deleteRules(setOf(rule.id))
+
+        val remaining = harness.coordinator.snapshot.value.groups.single().rules
+        assertEquals(listOf("keep"), remaining.map { it.id })
+        assertEquals(setOf("keep"), harness.coordinator.snapshot.value.results.keys)
+    }
+
+    @Test
     fun `toggling a rule records an enable event`() = runBlocking {
         val harness = harness()
         harness.coordinator.importGroups(listOf(groupWith(rule)), EventSource.IMPORT)
