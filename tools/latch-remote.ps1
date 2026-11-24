@@ -4,26 +4,68 @@
     Remote CLI for Latch over the Wi-Fi Agent gateway.
 
 .DESCRIPTION
-    Pairs once with the 6-digit code shown in Latch (Settings -> Agent 连接),
+    Pairs once with the pairing ticket shown in Latch (Settings -> 局域网连接),
     stores the token locally, then manages rules through the REST API.
 
+    The ticket is a single 14-digit string: last IPv4 octet (3), port (5) and
+    pairing code (6). The address prefix is taken from this machine's IPv4
+    address, so both devices must share the same /24 network.
+
 .EXAMPLE
-    ./latch-remote.ps1 -Address 192.168.10.21:8765 -Code 602741 -Command status
-    ./latch-remote.ps1 -Address 192.168.10.21:8765 -Command apply -Group adslot-lock
-    ./latch-remote.ps1 -Address 192.168.10.21:8765 -Command enable -Rule <ruleId>
+    ./latch-remote.ps1 -Pair 02151234986241 -Command status
+    ./latch-remote.ps1 -Pair 02151234986241 -Command logs
+    ./latch-remote.ps1 -Pair 02151234986241 -Command apply -Group adslot-lock
+
+.EXAMPLE
+    # Explicit address also works, for example across subnets.
+    ./latch-remote.ps1 -Address 192.168.10.21:51234 -Code 986241 -Command status
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$Address,
+    [string]$Address = '',
     [Parameter(Mandatory = $true)]
-    [ValidateSet('status', 'rules', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
+    [ValidateSet('status', 'rules', 'logs', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
     [string]$Command,
+    [string]$Pair = '',
     [string]$Code = '',
     [string]$Group = '',
     [string]$Rule = '',
     [string]$File = '',
     [string]$TokenFile = ''
 )
+
+# A pairing ticket carries the last octet, the port and the code in one string.
+if ($Pair) {
+    $ticket = $Pair.Trim()
+    if ($ticket -notmatch '^\d{14}$') { throw 'Pairing ticket must be 14 digits.' }
+    $octet = [int]$ticket.Substring(0, 3)
+    $port = [int]$ticket.Substring(3, 5)
+    $Code = $ticket.Substring(8, 6)
+    if (-not $Address) {
+        # Several adapters often exist (VPNs, virtual switches); probe each /24 and
+        # keep the first address that answers, instead of guessing an adapter.
+        $candidates = @(
+            Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } |
+                ForEach-Object {
+                    $prefix = ($_.IPAddress -split '\.')[0..2] -join '.'
+                    "${prefix}.${octet}:${port}"
+                } |
+                Select-Object -Unique
+        )
+        foreach ($candidate in $candidates) {
+            try {
+                Invoke-RestMethod -Uri "http://$candidate/meta" -TimeoutSec 2 -ErrorAction Stop | Out-Null
+                $Address = $candidate
+                break
+            } catch { }
+        }
+        if (-not $Address) {
+            throw 'Could not reach the device from any local /24 network; pass -Address explicitly.'
+        }
+    }
+}
+if (-not $Address) { throw 'Pass -Pair <14-digit ticket> or -Address <ip:port>.' }
 
 $ErrorActionPreference = 'Stop'
 if (-not $TokenFile) { $TokenFile = Join-Path $PSScriptRoot '.latch-token' }
@@ -74,6 +116,13 @@ switch ($Command) {
     }
     'rules' {
         (Invoke-WebRequest -Uri "$base/api/rules" -Headers $headers).Content
+    }
+    'logs' {
+        $result = Invoke-Api -Method Get -Path '/api/logs?limit=50'
+        $result.events |
+            Select-Object @{n = 'time'; e = { [DateTimeOffset]::FromUnixTimeMilliseconds($_.ts).ToLocalTime().ToString('MM-dd HH:mm:ss') } },
+                level, source, action, outcome, detail |
+            Format-Table -AutoSize | Out-String -Width 220
     }
     'apply' {
         if (-not $Group) { throw 'apply requires -Group <groupId>' }
