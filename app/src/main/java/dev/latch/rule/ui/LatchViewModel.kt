@@ -8,6 +8,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.latch.rule.AppContainer
+import dev.latch.rule.core.backup.BackupMeta
+import dev.latch.rule.core.backup.BackupReason
+import dev.latch.rule.core.backup.RestorePlan
+import dev.latch.rule.core.backup.RestoreScope
 import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
@@ -53,6 +57,10 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val gateway: AgentGateway.State = AgentGateway.State(),
         val logs: List<LatchEvent> = emptyList(),
         val logsLoading: Boolean = false,
+        val backups: List<BackupMeta> = emptyList(),
+        val backupsLoading: Boolean = false,
+        val restorePreview: RestorePlan? = null,
+        val restoring: Boolean = false,
     ) {
         fun resultOf(ruleId: String): StoredResult? = results[ruleId]
 
@@ -346,6 +354,58 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             _uiState.update { it.copy(message = "日志已清空") }
         }
     }
+
+    // endregion
+
+    // region backups
+
+    fun loadBackups() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupsLoading = true) }
+            val backups = container.backupService.list()
+            _uiState.update { it.copy(backups = backups, backupsLoading = false) }
+        }
+    }
+
+    fun createBackup() {
+        viewModelScope.launch {
+            val meta = container.backupService.snapshotNow(BackupReason.MANUAL)
+            _uiState.update { it.copy(message = if (meta != null) "已创建备份" else "没有可备份的规则") }
+            loadBackups()
+        }
+    }
+
+    fun previewRestore(snapshotId: String, groupIds: Set<String>?) {
+        viewModelScope.launch {
+            val plan = container.restoreService.preview(snapshotId, scopeOf(groupIds))
+            _uiState.update { it.copy(restorePreview = plan) }
+        }
+    }
+
+    fun clearRestorePreview() {
+        _uiState.update { it.copy(restorePreview = null) }
+    }
+
+    fun restoreBackup(snapshotId: String, groupIds: Set<String>?, apply: Boolean) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(restoring = true) }
+            val plan = container.restoreService.restore(snapshotId, scopeOf(groupIds), apply)
+            val message = when {
+                plan == null -> "快照不存在"
+                plan.affectedGroupIds.isEmpty() -> "没有需要恢复的改动"
+                else -> buildString {
+                    append("已恢复 ").append(plan.groups.size).append(" 个组、")
+                    append(plan.ruleCount).append(" 条规则")
+                    if (apply) append("，并已应用")
+                }
+            }
+            _uiState.update { it.copy(restoring = false, restorePreview = null, message = message) }
+            loadBackups()
+        }
+    }
+
+    private fun scopeOf(groupIds: Set<String>?): RestoreScope =
+        if (groupIds == null) RestoreScope.Full else RestoreScope.Selected(groupIds)
 
     // endregion
 

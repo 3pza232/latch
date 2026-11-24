@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.latch.rule.data.InstalledApp
+import dev.latch.rule.ui.screens.BackupsScreen
 import dev.latch.rule.ui.screens.GroupScreen
 import dev.latch.rule.ui.screens.HomeScreen
 import dev.latch.rule.ui.screens.LogsScreen
@@ -48,6 +49,7 @@ fun LatchApp(
     var editorRuleId by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var logsOpen by rememberSaveable { mutableStateOf(false) }
+    var backupsOpen by rememberSaveable { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<InstalledApp>>(emptyList()) }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -82,10 +84,19 @@ fun LatchApp(
         if (logsOpen) viewModel.loadLogs()
     }
 
+    LaunchedEffect(backupsOpen) {
+        if (backupsOpen) viewModel.loadBackups()
+    }
+
     BackHandler(enabled = editorOpen) { editorOpen = false }
     BackHandler(enabled = !editorOpen && logsOpen) { logsOpen = false }
-    BackHandler(enabled = !editorOpen && !logsOpen && settingsOpen) { settingsOpen = false }
-    BackHandler(enabled = !editorOpen && !logsOpen && !settingsOpen && selectedGroupId != null) {
+    BackHandler(enabled = !editorOpen && !logsOpen && backupsOpen) { backupsOpen = false }
+    BackHandler(enabled = !editorOpen && !logsOpen && !backupsOpen && settingsOpen) {
+        settingsOpen = false
+    }
+    BackHandler(
+        enabled = !editorOpen && !logsOpen && !backupsOpen && !settingsOpen && selectedGroupId != null,
+    ) {
         selectedGroupId = null
     }
 
@@ -120,6 +131,20 @@ fun LatchApp(
                 onClear = viewModel::clearLogs,
             )
 
+            backupsOpen -> BackupsScreen(
+                backups = state.backups,
+                groups = state.groups,
+                loading = state.backupsLoading,
+                restoring = state.restoring,
+                preview = state.restorePreview,
+                onBack = { backupsOpen = false },
+                onRefresh = viewModel::loadBackups,
+                onCreate = viewModel::createBackup,
+                onPreview = viewModel::previewRestore,
+                onClearPreview = viewModel::clearRestorePreview,
+                onRestore = viewModel::restoreBackup,
+            )
+
             settingsOpen -> SettingsScreen(
                 state = state,
                 onBack = { settingsOpen = false },
@@ -139,6 +164,7 @@ fun LatchApp(
                 onStartAgent = viewModel::startAgentGateway,
                 onStopAgent = viewModel::stopAgentGateway,
                 onOpenLogs = { logsOpen = true },
+                onOpenBackups = { backupsOpen = true },
             )
 
             selectedGroup != null -> GroupScreen(
