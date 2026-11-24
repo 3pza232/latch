@@ -307,7 +307,7 @@ fun RuleEditorScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "vivo 保护包可能拒绝停用（需 root），失败时会在校验中显示原因。",
+                            "部分系统或厂商保护策略可能拒绝停用，失败时会在校验中显示原因。",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
