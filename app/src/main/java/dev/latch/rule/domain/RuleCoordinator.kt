@@ -21,7 +21,6 @@ import dev.latch.rule.data.VerificationSnapshot
 import dev.latch.rule.engine.RuleEngine
 import dev.latch.rule.engine.batchEvent
 import dev.latch.rule.engine.toEvent
-import dev.latch.rule.engine.toStored
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

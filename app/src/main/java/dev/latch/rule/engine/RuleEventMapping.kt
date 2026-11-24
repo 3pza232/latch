@@ -7,7 +7,6 @@ import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleState
-import dev.latch.rule.data.StoredResult
 
 /** One rule outcome, with the commands and output that produced it. */
 fun RuleResult.toEvent(
@@ -83,13 +82,3 @@ fun batchEvent(
 /** True when this result deserves its own line rather than only a batch summary. */
 fun RuleResult.needsDetail(): Boolean =
     state == RuleState.DRIFTED || state == RuleState.FAILED
-
-/** Compact form persisted in `results.json`, which keeps the last known state. */
-fun RuleResult.toStored(checkedAt: Long): StoredResult = StoredResult(
-    ruleId = ruleId,
-    state = state,
-    expected = expected,
-    actual = actual,
-    message = error?.message ?: message,
-    checkedAt = checkedAt,
-)

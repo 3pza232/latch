@@ -18,7 +18,6 @@ import dev.latch.rule.engine.RuleResult
 import dev.latch.rule.engine.batchEvent
 import dev.latch.rule.engine.needsDetail
 import dev.latch.rule.engine.toEvent
-import dev.latch.rule.engine.toStored
 
 /**
  * Runs verification over the persisted rule document and stores the outcome.
