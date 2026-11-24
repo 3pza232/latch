@@ -10,6 +10,8 @@ data class LatchSettings(
     val periodicMinutes: Int = 0,
     val notifyOnDrift: Boolean = false,
     val hideFromRecents: Boolean = false,
+    /** Days of event log to keep; 0 means keep indefinitely. */
+    val logRetentionDays: Int = 30,
 )
 
 interface SettingsStore {
@@ -27,6 +29,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         periodicMinutes = prefs.getInt(KEY_PERIODIC, 0),
         notifyOnDrift = prefs.getBoolean(KEY_NOTIFY, false),
         hideFromRecents = prefs.getBoolean(KEY_HIDE_RECENTS, false),
+        logRetentionDays = prefs.getInt(KEY_LOG_RETENTION, 30),
     )
 
     override fun save(settings: LatchSettings) {
@@ -36,6 +39,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
             putInt(KEY_PERIODIC, settings.periodicMinutes)
             putBoolean(KEY_NOTIFY, settings.notifyOnDrift)
             putBoolean(KEY_HIDE_RECENTS, settings.hideFromRecents)
+            putInt(KEY_LOG_RETENTION, settings.logRetentionDays)
         }
     }
 
@@ -46,5 +50,6 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         const val KEY_PERIODIC = "periodic_minutes"
         const val KEY_NOTIFY = "notify_on_drift"
         const val KEY_HIDE_RECENTS = "hide_from_recents"
+        const val KEY_LOG_RETENTION = "log_retention_days"
     }
 }

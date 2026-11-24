@@ -1,5 +1,6 @@
 package dev.latch.rule.gateway
 
+import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.RuleCoordinator
@@ -196,7 +197,7 @@ class GatewayServer(
         val groups = runCatching { RuleCodec.decode(text) }.getOrElse {
             return json(Response.Status.BAD_REQUEST, error(it.message ?: "invalid rule document"))
         }
-        runBlocking { coordinator.importGroups(groups) }
+        runBlocking { coordinator.importGroups(groups, EventSource.GATEWAY) }
         return json(
             Response.Status.OK,
             JSONObject()
@@ -215,7 +216,7 @@ class GatewayServer(
         if (groupId.isBlank() || coordinator.snapshot.value.groups.none { it.id == groupId }) {
             return json(Response.Status.BAD_REQUEST, error("unknown group"))
         }
-        val result = runBlocking { coordinator.upsertRule(groupId, normalized) }
+        val result = runBlocking { coordinator.upsertRule(groupId, normalized, EventSource.GATEWAY) }
         return json(
             Response.Status.OK,
             JSONObject()
@@ -238,11 +239,11 @@ class GatewayServer(
                     return json(Response.Status.BAD_REQUEST, error("missing enabled"))
                 }
                 val enabled = json.optBoolean("enabled")
-                runBlocking { coordinator.setRuleEnabled(id, enabled) }
+                runBlocking { coordinator.setRuleEnabled(id, enabled, EventSource.GATEWAY) }
                 json(Response.Status.OK, JSONObject().put("ok", true).put("enabled", enabled))
             }
             segments.size == 1 && session.method == Method.DELETE -> {
-                runBlocking { coordinator.deleteRule(id) }
+                runBlocking { coordinator.deleteRule(id, EventSource.GATEWAY) }
                 json(Response.Status.OK, JSONObject().put("ok", true))
             }
             else -> json(Response.Status.METHOD_NOT_ALLOWED, error("method not allowed"))
@@ -254,7 +255,7 @@ class GatewayServer(
         if (coordinator.snapshot.value.groups.none { it.id == groupId }) {
             return json(Response.Status.NOT_FOUND, error("unknown group"))
         }
-        val results = runBlocking { coordinator.applyGroup(groupId) }
+        val results = runBlocking { coordinator.applyGroup(groupId, EventSource.GATEWAY) }
         return json(Response.Status.OK, JSONObject().put("ok", true).put("results", resultsJson(results)))
     }
 
@@ -266,18 +267,18 @@ class GatewayServer(
         val json = bodyJson(session) ?: return json(Response.Status.BAD_REQUEST, error("missing body"))
         if (!json.has("enabled")) return json(Response.Status.BAD_REQUEST, error("missing enabled"))
         val enabled = json.optBoolean("enabled")
-        runBlocking { coordinator.setGroupEnabled(groupId, enabled) }
+        runBlocking { coordinator.setGroupEnabled(groupId, enabled, EventSource.GATEWAY) }
         return json(Response.Status.OK, JSONObject().put("ok", true).put("enabled", enabled))
     }
 
     private fun verify(): Response {
-        val snapshot = runBlocking { coordinator.verifyAll() }
+        val snapshot = runBlocking { coordinator.verifyAll(EventSource.GATEWAY) }
         val payload = JSONObject().put("ok", true).put("results", resultsJson(snapshot.results.values.toList()))
         return json(Response.Status.OK, payload)
     }
 
     private fun repair(): Response {
-        val report = runBlocking { coordinator.verifyAndRepair() }
+        val report = runBlocking { coordinator.verifyAndRepair(EventSource.GATEWAY) }
         return json(
             Response.Status.OK,
             JSONObject()

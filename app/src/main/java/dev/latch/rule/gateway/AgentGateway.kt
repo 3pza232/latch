@@ -3,11 +3,20 @@ package dev.latch.rule.gateway
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
+import dev.latch.rule.core.log.EventAction
+import dev.latch.rule.core.log.EventLevel
+import dev.latch.rule.core.log.EventLog
+import dev.latch.rule.core.log.EventSource
+import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.privilege.PrivilegeBroker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.security.SecureRandom
 
 /**
@@ -18,6 +27,7 @@ class AgentGateway(
     private val context: Context,
     private val coordinator: RuleCoordinator,
     private val privilege: PrivilegeBroker,
+    private val eventLog: EventLog = EventLog.Noop,
 ) {
 
     enum class Status { IDLE, WAITING, CONNECTED, ERROR }
@@ -33,6 +43,7 @@ class AgentGateway(
     )
 
     private val random = SecureRandom()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val versionName: String =
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
@@ -58,11 +69,10 @@ class AgentGateway(
             runCatching { created.stop() }
             server = null
             currentCode = null
-            _state.value = State(
-                status = Status.ERROR,
-                error = started.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
-                    ?: "无法监听端口 $PORT",
-            )
+            val reason = started.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
+                ?: "无法监听端口"
+            _state.value = State(status = Status.ERROR, error = reason)
+            record(EventLevel.ERROR, EventAction.GATEWAY_START, "failed", reason)
             return false
         }
         server = created
@@ -72,17 +82,20 @@ class AgentGateway(
             address = localAddress(),
             port = PORT,
         )
+        record(EventLevel.INFO, EventAction.GATEWAY_START, "waiting", detail = "port=$PORT")
         return true
     }
 
     @Synchronized
     fun stop() {
+        val wasRunning = server != null
         server?.stop()
         server = null
         token = null
         currentCode = null
         failures = 0
         _state.value = State()
+        if (wasRunning) record(EventLevel.INFO, EventAction.GATEWAY_STOP, "stopped")
     }
 
     /** Returns (token, error). Consumed code is invalidated after a successful pair. */
@@ -93,12 +106,14 @@ class AgentGateway(
         if (input != expected) {
             failures++
             if (failures >= MAX_FAILURES) currentCode = "%06d".format(random.nextInt(1_000_000))
+            record(EventLevel.WARN, EventAction.PAIR_FAILED, "rejected", detail = "failures=$failures")
             return null to "invalid pairing code"
         }
         val newToken = ByteArray(32).also { random.nextBytes(it) }
             .joinToString("") { "%02x".format(it) }
         token = newToken
         _state.value = _state.value.copy(status = Status.CONNECTED, clients = 1)
+        record(EventLevel.INFO, EventAction.PAIR, "connected")
         return newToken to null
     }
 
@@ -106,6 +121,27 @@ class AgentGateway(
     fun isAuthorized(header: String?): Boolean {
         val expected = token ?: return false
         return header == "Bearer $expected"
+    }
+
+    private fun record(
+        level: EventLevel,
+        action: EventAction,
+        outcome: String,
+        message: String? = null,
+        detail: String? = null,
+    ) {
+        scope.launch {
+            eventLog.record(
+                LatchEvent(
+                    level = level,
+                    source = EventSource.GATEWAY,
+                    action = action,
+                    outcome = outcome,
+                    message = message,
+                    detail = detail,
+                ),
+            )
+        }
     }
 
     private fun localAddress(): String? {

@@ -14,6 +14,11 @@ data class RuleResult(
     val actual: String,
     val error: LatchError? = null,
     val message: String? = null,
+    /** Commands that produced this result, for the event log. */
+    val commands: List<String> = emptyList(),
+    val exitCode: Int? = null,
+    /** Raw output excerpt; truncated when the event is stored. */
+    val output: String? = null,
 )
 
 /**
@@ -34,7 +39,8 @@ class RuleEngine(private val broker: PrivilegeBroker) {
             if (!result.ok && failedStep == null) failedStep = (index + 1) to result
         }
 
-        val verified = verifyAgainst(rule, spec)
+        val commands = spec.applyCommands + spec.verifyCommand
+        val verified = verifyAgainst(rule, spec).copy(commands = commands)
         if (verified.state == RuleState.APPLIED) return verified
 
         val failure = failedStep
@@ -47,6 +53,8 @@ class RuleEngine(private val broker: PrivilegeBroker) {
         return verified.copy(
             state = RuleState.FAILED,
             error = error.copy(message = "步骤 ${failure.first} 失败：${error.message}"),
+            exitCode = failure.second.exitCode,
+            output = failure.second.excerpt(),
         )
     }
 
@@ -57,6 +65,7 @@ class RuleEngine(private val broker: PrivilegeBroker) {
     }
 
     private suspend fun verifyAgainst(rule: Rule, spec: CommandSpec): RuleResult {
+        val commands = listOf(spec.verifyCommand)
         val result = broker.execute(spec.verifyCommand)
         if (!result.ok) {
             return RuleResult(
@@ -65,6 +74,9 @@ class RuleEngine(private val broker: PrivilegeBroker) {
                 expected = spec.expected,
                 actual = "-",
                 error = LatchError.fromShell(result),
+                commands = commands,
+                exitCode = result.exitCode,
+                output = result.excerpt(),
             )
         }
         val actual = spec.parser.extract(result.stdout)
@@ -74,6 +86,9 @@ class RuleEngine(private val broker: PrivilegeBroker) {
                 expected = spec.expected,
                 actual = UNKNOWN,
                 error = LatchError(LatchErrorCode.PARSE_FAILED, "无法解析系统回读结果"),
+                commands = commands,
+                exitCode = result.exitCode,
+                output = result.excerpt(),
             )
         val state = if (matches(spec.expected, actual)) RuleState.APPLIED else RuleState.DRIFTED
         return RuleResult(
@@ -81,8 +96,14 @@ class RuleEngine(private val broker: PrivilegeBroker) {
             state = state,
             expected = spec.expected,
             actual = actual,
+            commands = commands,
+            exitCode = result.exitCode,
+            output = result.excerpt(),
         )
     }
+
+    private fun ShellResult.excerpt(): String? =
+        (stderr.ifBlank { stdout }).trim().takeIf { it.isNotEmpty() }
 
     /**
      * A `default` rule clears the override, so any `default(...)` reading satisfies it.
