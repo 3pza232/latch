@@ -2,12 +2,15 @@ package dev.latch.rule.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,8 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.gateway.AgentGateway
 import dev.latch.rule.ui.LatchViewModel
@@ -42,7 +47,12 @@ import dev.latch.rule.ui.components.PairingDialog
 import dev.latch.rule.ui.components.ShizukuStatusCard
 import dev.latch.rule.ui.theme.LatchDimens
 
-private val PERIODIC_OPTIONS = listOf(0 to "关闭", 15 to "15 分钟", 30 to "30 分钟", 60 to "60 分钟")
+private val PERIODIC_OPTIONS = listOf(
+    0 to R.string.settings_period_off,
+    15 to R.string.settings_period_15,
+    30 to R.string.settings_period_30,
+    60 to R.string.settings_period_60,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,10 +93,10 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -109,12 +119,12 @@ fun SettingsScreen(
                 onOpenShizuku = onOpenShizuku,
             )
 
-            SectionTitle("局域网连接")
+            SectionTitle(stringResource(R.string.settings_lan))
             when (state.gateway.status) {
                 AgentGateway.Status.IDLE -> AgentRow(
-                    title = "未连接",
-                    subtitle = "在同一局域网内管理规则",
-                    actionLabel = "连接",
+                    title = stringResource(R.string.settings_lan_idle),
+                    subtitle = stringResource(R.string.settings_lan_idle_sub),
+                    actionLabel = stringResource(R.string.settings_connect),
                     onAction = {
                         pairingVisible = true
                         onStartAgent()
@@ -122,47 +132,51 @@ fun SettingsScreen(
                 )
 
                 AgentGateway.Status.WAITING -> AgentRow(
-                    title = "等待连接",
+                    title = stringResource(R.string.settings_waiting),
                     subtitle = "http://${state.gateway.address ?: "-"}:${state.gateway.port}",
-                    actionLabel = "显示配对码",
+                    actionLabel = stringResource(R.string.settings_show_code),
                     onAction = { pairingVisible = true },
-                    secondaryLabel = "断开",
+                    secondaryLabel = stringResource(R.string.settings_disconnect),
                     onSecondary = onStopAgent,
                 )
 
                 AgentGateway.Status.CONNECTED -> AgentRow(
-                    title = "已连接",
-                    subtitle = "局域网 ${state.gateway.address ?: "-"}:${state.gateway.port}",
-                    actionLabel = "断开",
+                    title = stringResource(R.string.settings_connected),
+                    subtitle = stringResource(
+                        R.string.settings_lan_address,
+                        "${state.gateway.address ?: "-"}:${state.gateway.port}",
+                    ),
+                    actionLabel = stringResource(R.string.settings_disconnect),
                     onAction = onStopAgent,
                 )
 
                 AgentGateway.Status.ERROR -> AgentRow(
-                    title = "无法启动",
-                    subtitle = state.gateway.error ?: "端口 ${state.gateway.port} 不可用",
-                    actionLabel = "重试",
+                    title = stringResource(R.string.settings_start_failed),
+                    subtitle = state.gateway.error
+                        ?: stringResource(R.string.settings_port_unavailable, state.gateway.port),
+                    actionLabel = stringResource(R.string.settings_retry),
                     onAction = onStartAgent,
                 )
             }
 
-            SectionTitle("自检")
+            SectionTitle(stringResource(R.string.settings_selfcheck))
             SwitchRow(
-                title = "打开应用时自动校验",
-                subtitle = "启动后立即核对所有启用规则",
+                title = stringResource(R.string.settings_auto_open),
+                subtitle = stringResource(R.string.settings_auto_open_sub),
                 checked = state.settings.autoVerifyOnOpen,
                 onChange = { onUpdateSettings(state.settings.copy(autoVerifyOnOpen = it)) },
             )
             SwitchRow(
-                title = "开机自检",
-                subtitle = "重启后自动核对一次（需 Shizuku 已授权）",
+                title = stringResource(R.string.settings_auto_boot),
+                subtitle = stringResource(R.string.settings_auto_boot_sub),
                 checked = state.settings.autoVerifyOnBoot,
                 onChange = { onUpdateSettings(state.settings.copy(autoVerifyOnBoot = it)) },
             )
             Column {
-                Text("定期自检", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.settings_periodic), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "后台按间隔校验；发现漂移会自动重新应用",
+                    stringResource(R.string.settings_periodic_sub),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -172,14 +186,14 @@ fun SettingsScreen(
                         FilterChip(
                             selected = state.settings.periodicMinutes == minutes,
                             onClick = { onUpdateSettings(state.settings.copy(periodicMinutes = minutes)) },
-                            label = { Text(label) },
+                            label = { Text(stringResource(label)) },
                         )
                     }
                 }
             }
             SwitchRow(
-                title = "修复失败时通知",
-                subtitle = "自动修复后仍有漂移时发送通知",
+                title = stringResource(R.string.settings_notify),
+                subtitle = stringResource(R.string.settings_notify_sub),
                 checked = state.settings.notifyOnDrift,
                 onChange = { enabled ->
                     onUpdateSettings(state.settings.copy(notifyOnDrift = enabled))
@@ -187,55 +201,68 @@ fun SettingsScreen(
                 },
             )
             SwitchRow(
-                title = "覆盖解除后自动应用",
-                subtitle = "覆盖规则关闭或删除后，重新下发被覆盖的规则",
+                title = stringResource(R.string.settings_reapply),
+                subtitle = stringResource(R.string.settings_reapply_sub),
                 checked = state.settings.autoReapplyOnUnsuppress,
                 onChange = {
                     onUpdateSettings(state.settings.copy(autoReapplyOnUnsuppress = it))
                 },
             )
             SwitchRow(
-                title = "隐藏最近任务",
-                subtitle = "从最近任务列表隐藏 Latch",
+                title = stringResource(R.string.settings_hide_recents),
+                subtitle = stringResource(R.string.settings_hide_recents_sub),
                 checked = state.settings.hideFromRecents,
                 onChange = { onUpdateSettings(state.settings.copy(hideFromRecents = it)) },
             )
 
-            SectionTitle("诊断")
+            SectionTitle(stringResource(R.string.settings_diagnostics))
             AgentRow(
-                title = "运行日志",
-                subtitle = "查看应用、校验、修复与配对记录",
-                actionLabel = "查看",
+                title = stringResource(R.string.settings_logs),
+                subtitle = stringResource(R.string.settings_logs_sub),
+                actionLabel = stringResource(R.string.common_view),
                 onAction = onOpenLogs,
             )
             AgentRow(
-                title = "备份与恢复",
-                subtitle = "自动保存规则快照，可按规则组恢复",
-                actionLabel = "查看",
+                title = stringResource(R.string.settings_backups),
+                subtitle = stringResource(R.string.settings_backups_sub),
+                actionLabel = stringResource(R.string.common_view),
                 onAction = onOpenBackups,
             )
             AgentRow(
-                title = "统计",
-                subtitle = "应用与修复次数、活跃天数、最近 7 天",
-                actionLabel = "查看",
+                title = stringResource(R.string.settings_stats),
+                subtitle = stringResource(R.string.settings_stats_sub),
+                actionLabel = stringResource(R.string.common_view),
                 onAction = onOpenStats,
             )
 
-            SectionTitle("数据")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onImportJson) { Text("导入 JSON") }
-                OutlinedButton(onClick = onExportJson) { Text("导出 JSON") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.settings_rule_data),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                CompactButton(stringResource(R.string.settings_import), onImportJson)
+                Spacer(Modifier.width(8.dp))
+                CompactButton(stringResource(R.string.settings_export), onExportJson)
             }
             Text(
-                "规则保存在 files/rules.json，覆盖安装保留，卸载清除。",
+                stringResource(R.string.settings_rule_data_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionTitle("关于")
-            InfoRow("版本", versionName)
-            InfoRow("规则", "${state.groups.size} 个规则组 / $ruleCount 条规则")
-            InfoRow("上次校验", if (state.verifiedAt > 0) "已校验" else "尚未校验")
+            SectionTitle(stringResource(R.string.settings_about))
+            InfoRow(stringResource(R.string.settings_version), versionName)
+            InfoRow(
+                stringResource(R.string.settings_rules),
+                stringResource(R.string.settings_rules_summary, state.groups.size, ruleCount),
+            )
+            InfoRow(
+                stringResource(R.string.settings_last_check),
+                stringResource(
+                    if (state.verifiedAt > 0) R.string.settings_checked else R.string.settings_not_checked,
+                ),
+            )
 
             Spacer(Modifier.height(24.dp))
             Text(
@@ -285,6 +312,17 @@ private fun AgentRow(
 @Composable
 private fun SectionTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium)
+}
+
+@Composable
+private fun CompactButton(label: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
+    }
 }
 
 @Composable

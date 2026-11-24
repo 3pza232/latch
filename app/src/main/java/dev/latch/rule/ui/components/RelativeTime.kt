@@ -1,16 +1,21 @@
 package dev.latch.rule.ui.components
 
-/** Compact relative time for "last verified" labels. */
-object RelativeTime {
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import dev.latch.rule.R
 
-    fun text(timestamp: Long): String {
-        if (timestamp <= 0L) return "尚未校验"
-        val delta = System.currentTimeMillis() - timestamp
-        return when {
-            delta < 60_000L -> "刚刚校验"
-            delta < 3_600_000L -> "${delta / 60_000L} 分钟前校验"
-            delta < 86_400_000L -> "${delta / 3_600_000L} 小时前校验"
-            else -> "${delta / 86_400_000L} 天前校验"
-        }
+/** Compact relative time for "last verified" labels. */
+@Composable
+fun relativeTimeText(timestamp: Long): String {
+    if (timestamp <= 0L) return stringResource(R.string.time_never_checked)
+    val delta = System.currentTimeMillis() - timestamp
+    return when {
+        delta < 60_000L -> stringResource(R.string.time_just_checked)
+        delta < 3_600_000L ->
+            stringResource(R.string.time_minutes_ago, (delta / 60_000L).toInt())
+        delta < 86_400_000L ->
+            stringResource(R.string.time_hours_ago, (delta / 3_600_000L).toInt())
+        else ->
+            stringResource(R.string.time_days_ago, (delta / 86_400_000L).toInt())
     }
 }

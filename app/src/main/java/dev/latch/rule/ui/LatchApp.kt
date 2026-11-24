@@ -17,21 +17,24 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.latch.rule.R
 import dev.latch.rule.data.InstalledApp
 import dev.latch.rule.ui.screens.BackupsScreen
 import dev.latch.rule.ui.screens.GroupScreen
@@ -73,6 +76,19 @@ fun LatchApp(
     }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         viewModel.onNotificationPermissionResult(granted)
+    }
+    val logsExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri: Uri? ->
+        if (uri != null) viewModel.exportLogsToUri(uri)
+    }
+    var pendingBackupExport by rememberSaveable { mutableStateOf<String?>(null) }
+    val backupExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        val snapshotId = pendingBackupExport
+        pendingBackupExport = null
+        if (uri != null && snapshotId != null) viewModel.exportBackupToUri(snapshotId, uri)
     }
 
     LaunchedEffect(state.message) {
@@ -128,7 +144,29 @@ fun LatchApp(
     val selectedGroup = state.groups.firstOrNull { it.id == selectedGroupId }
     val editingRule = selectedGroup?.rules?.firstOrNull { it.id == editorRuleId }
 
+    // Each destination keeps its own rememberSaveable state (scroll position, filters,
+    // dialogs) while it is on the stack. Leaving a destination removes its state, which
+    // mirrors a back stack without adding a navigation library.
+    val navKey = when {
+        editorOpen && selectedGroup != null ->
+            "editor:${selectedGroup.id}:${editingRule?.id ?: "new"}"
+        logsOpen -> "logs"
+        backupsOpen -> "backups"
+        statsOpen -> "stats"
+        settingsOpen -> "settings"
+        selectedGroup != null -> "group:${selectedGroup.id}"
+        else -> "home"
+    }
+    val visibleKeys = remember(navKey) { keysOnStack(navKey) }
+    val saveableStateHolder = rememberSaveableStateHolder()
+    var knownKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(visibleKeys) {
+        (knownKeys - visibleKeys).forEach(saveableStateHolder::removeState)
+        knownKeys = visibleKeys
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
+        saveableStateHolder.SaveableStateProvider(navKey) {
         when {
             editorOpen && selectedGroup != null -> RuleEditorScreen(
                 apps = apps,
@@ -150,6 +188,7 @@ fun LatchApp(
                 loading = state.logsLoading,
                 onBack = { logsOpen = false },
                 onRefresh = viewModel::loadLogs,
+                onExport = { logsExportLauncher.launch("latch-logs.ndjson") },
                 onClear = viewModel::clearLogs,
             )
 
@@ -165,6 +204,10 @@ fun LatchApp(
                 onPreview = viewModel::previewRestore,
                 onClearPreview = viewModel::clearRestorePreview,
                 onRestore = viewModel::restoreBackup,
+                onExport = { snapshotId ->
+                    pendingBackupExport = snapshotId
+                    backupExportLauncher.launch("latch-backup-$snapshotId.json")
+                },
             )
 
             statsOpen -> StatsScreen(
@@ -235,6 +278,7 @@ fun LatchApp(
                 onDeleteGroups = viewModel::deleteGroups,
             )
         }
+        }
 
         SnackbarHost(
             hostState = snackbarHostState,
@@ -260,10 +304,10 @@ private fun ConflictDialog(
     var overwrite by remember(pending.rule.id) { mutableStateOf(true) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("规则冲突") },
+        title = { Text(stringResource(R.string.conflict_title)) },
         text = {
             Column {
-                Text("新规则与以下现有规则声明了不同的值：")
+                Text(stringResource(R.string.conflict_intro))
                 Spacer(Modifier.height(8.dp))
                 pending.conflicts.take(6).forEach { conflict ->
                     Text(
@@ -273,7 +317,7 @@ private fun ConflictDialog(
                 }
                 if (pending.conflicts.size > 6) {
                     Text(
-                        "… 还有 ${pending.conflicts.size - 6} 条",
+                        stringResource(R.string.conflict_more, pending.conflicts.size - 6),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -283,31 +327,50 @@ private fun ConflictDialog(
                     FilterChip(
                         selected = overwrite,
                         onClick = { overwrite = true },
-                        label = { Text("新规则覆盖") },
+                        label = { Text(stringResource(R.string.conflict_overwrite)) },
                     )
                     FilterChip(
                         selected = !overwrite,
                         onClick = { overwrite = false },
-                        label = { Text("保留现有") },
+                        label = { Text(stringResource(R.string.conflict_keep)) },
                     )
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    if (overwrite) {
-                        "保存后，现有规则显示为被新规则覆盖。"
-                    } else {
-                        "保存后，新规则显示为被现有规则覆盖，暂不生效。"
-                    },
+                    stringResource(
+                        if (overwrite) {
+                            R.string.conflict_hint_overwrite
+                        } else {
+                            R.string.conflict_hint_keep
+                        },
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onResolve(overwrite) }) { Text("保存") }
+            TextButton(onClick = { onResolve(overwrite) }) { Text(stringResource(R.string.common_save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         },
     )
+}
+
+/** Destinations that stay composed (or cached) while [navKey] is shown. */
+private fun keysOnStack(navKey: String): Set<String> = buildSet {
+    add("home")
+    when {
+        navKey == "settings" -> add("settings")
+        navKey == "logs" || navKey == "backups" || navKey == "stats" -> {
+            add("settings")
+            add(navKey)
+        }
+        navKey.startsWith("group:") -> add(navKey)
+        navKey.startsWith("editor:") -> {
+            add("group:" + navKey.removePrefix("editor:").substringBefore(':'))
+            add(navKey)
+        }
+    }
 }

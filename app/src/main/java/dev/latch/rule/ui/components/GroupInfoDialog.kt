@@ -14,7 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 
 /** Create or edit a rule group: name plus optional description. */
 @Composable
@@ -38,13 +40,13 @@ fun GroupInfoDialog(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("名称") },
+                    label = { Text(stringResource(R.string.common_name)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("说明（可选）") },
+                    label = { Text(stringResource(R.string.common_description)) },
                     minLines = 2,
                     maxLines = 3,
                     modifier = Modifier
@@ -61,7 +63,7 @@ fun GroupInfoDialog(
             ) { Text(confirmLabel) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         },
     )
 }

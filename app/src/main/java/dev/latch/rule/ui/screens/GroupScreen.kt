@@ -37,7 +37,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.ui.LatchViewModel
 import dev.latch.rule.ui.components.GroupInfoDialog
@@ -76,12 +78,12 @@ fun GroupScreen(
             TopAppBar(
                 title = {
                     if (selecting) {
-                        Text("已选择 ${selection.size} 条")
+                        Text(stringResource(R.string.group_selected_count, selection.size))
                     } else {
                         Column {
                             Text(group.name)
                             Text(
-                                "${group.rules.size} 条规则",
+                                stringResource(R.string.group_rule_count, group.rules.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -91,18 +93,18 @@ fun GroupScreen(
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = { selection = emptySet() }) {
-                            Icon(Icons.Filled.Close, contentDescription = "取消选择")
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.home_clear_selection))
                         }
                     } else {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     }
                 },
                 actions = {
                     if (selecting) {
                         IconButton(onClick = { confirmDeleteRules = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "删除所选")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.home_delete_selected))
                         }
                     } else {
                         if (busy) {
@@ -113,18 +115,18 @@ fun GroupScreen(
                             Spacer(Modifier.width(8.dp))
                         }
                         TextButton(onClick = onApply, enabled = !busy) {
-                            Text(if (busy) "应用中" else "应用")
+                            Text(stringResource(if (busy) R.string.group_applying else R.string.group_apply))
                         }
                         IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.group_more))
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
-                                text = { Text("编辑名称与说明") },
+                                text = { Text(stringResource(R.string.group_edit_info)) },
                                 onClick = { menuOpen = false; renameDialog = true },
                             )
                             DropdownMenuItem(
-                                text = { Text("删除规则组") },
+                                text = { Text(stringResource(R.string.group_delete)) },
                                 onClick = { menuOpen = false; confirmDelete = true },
                             )
                         }
@@ -138,7 +140,7 @@ fun GroupScreen(
         floatingActionButton = {
             if (!selecting) {
                 FloatingActionButton(onClick = onAddRule) {
-                    Icon(Icons.Filled.Add, contentDescription = "添加规则到本组")
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.group_add_rule))
                 }
             }
         },
@@ -159,7 +161,7 @@ fun GroupScreen(
                     onToggle = { onToggleRule(rule.id, it) },
                     onLongClick = { selection = selection.toggle(rule.id) },
                     selected = rule.id in selection,
-                    notice = state.suppressedBy[rule.id]?.let { "被「$it」覆盖" }
+                    notice = state.suppressedBy[rule.id]?.let { stringResource(R.string.rule_covered_by, it) }
                         ?: state.blocked[rule.id],
                 )
             }
@@ -169,10 +171,10 @@ fun GroupScreen(
 
     if (renameDialog) {
         GroupInfoDialog(
-            title = "编辑规则组",
+            title = stringResource(R.string.group_edit_title),
             initialName = group.name,
             initialDescription = group.description,
-            confirmLabel = "保存",
+            confirmLabel = stringResource(R.string.common_save),
             onConfirm = { name, description ->
                 onChangeGroupInfo(name, description)
                 renameDialog = false
@@ -184,16 +186,16 @@ fun GroupScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("删除规则组？") },
-            text = { Text("将同时删除组内 ${group.rules.size} 条规则，系统上已生效的设置不会被自动还原。") },
+            title = { Text(stringResource(R.string.group_delete_title)) },
+            text = { Text(stringResource(R.string.group_delete_body, group.rules.size)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     onDeleteGroup()
-                }) { Text("删除") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
@@ -201,17 +203,17 @@ fun GroupScreen(
     if (confirmDeleteRules) {
         AlertDialog(
             onDismissRequest = { confirmDeleteRules = false },
-            title = { Text("删除 ${selection.size} 条规则？") },
-            text = { Text("删除后不可撤销，系统上已生效的设置不会被自动还原。") },
+            title = { Text(stringResource(R.string.group_delete_selected_title, selection.size)) },
+            text = { Text(stringResource(R.string.group_delete_irreversible)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDeleteRules = false
                     onDeleteRules(selection)
                     selection = emptySet()
-                }) { Text("删除") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDeleteRules = false }) { Text("取消") }
+                TextButton(onClick = { confirmDeleteRules = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }

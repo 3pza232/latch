@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.latch.rule.AppContainer
+import dev.latch.rule.R
 import dev.latch.rule.core.backup.BackupMeta
 import dev.latch.rule.core.backup.BackupReason
 import dev.latch.rule.core.backup.RestorePlan
@@ -20,6 +21,7 @@ import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.rules.RuleConflict
 import dev.latch.rule.core.rules.RuleValidation
 import dev.latch.rule.core.stats.StatsSnapshot
+import dev.latch.rule.data.BackupCodec
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.data.StoredResult
@@ -201,7 +203,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             .getLaunchIntentForPackage(SHIZUKU_PACKAGE)
             ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (intent == null) {
-            _uiState.update { it.copy(message = "未安装 Shizuku") }
+            _uiState.update { it.copy(message = text(R.string.msg_shizuku_missing)) }
         } else {
             runCatching { container.appContext.startActivity(intent) }
         }
@@ -245,7 +247,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
      */
     fun upsertRule(groupId: String, rule: Rule) {
         container.targetPolicy.blockReason(rule)?.let { reason ->
-            _uiState.update { it.copy(message = "未保存：$reason") }
+            _uiState.update { it.copy(message = text(R.string.msg_not_saved, reason)) }
             return
         }
         viewModelScope.launch {
@@ -289,7 +291,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val result = container.ruleCoordinator.upsertRule(groupId, rule, overrides)
         val message = when {
             result != null -> summarize(rule.name, listOf(result))
-            suppressed -> "已保存，新规则被现有规则覆盖"
+            suppressed -> text(R.string.msg_saved_covered)
             else -> null
         }
         _uiState.update {
@@ -329,7 +331,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val group = _uiState.value.groups.firstOrNull { it.id == groupId } ?: return
         if (_uiState.value.busyGroupId != null) return
         if (group.rules.none { it.enabled }) {
-            _uiState.update { it.copy(message = "${group.name} · 没有启用的规则") }
+            _uiState.update { it.copy(message = text(R.string.msg_no_enabled_rules, group.name)) }
             return
         }
         viewModelScope.launch {
@@ -340,7 +342,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
-                _uiState.update { it.copy(message = "应用失败：${error.message ?: "未知错误"}") }
+                _uiState.update { it.copy(message = text(R.string.msg_apply_failed, error.message ?: text(R.string.msg_unknown_error))) }
             } finally {
                 _uiState.update { it.copy(busyGroupId = null) }
             }
@@ -359,7 +361,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
-                _uiState.update { it.copy(message = "校验失败：${error.message ?: "未知错误"}") }
+                _uiState.update { it.copy(message = text(R.string.msg_verify_failed, error.message ?: text(R.string.msg_unknown_error))) }
             } finally {
                 _uiState.update { it.copy(verifyingAll = false) }
             }
@@ -408,19 +410,22 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
     fun importJson(text: String) {
         val document = runCatching { RuleCodec.decode(text) }.getOrElse { error ->
-            _uiState.update { it.copy(message = "导入失败：${error.message ?: "JSON 格式错误"}") }
+            _uiState.update { it.copy(message = text(R.string.msg_import_failed, error.message ?: text(R.string.msg_unknown_error))) }
             return
         }
         if (document.groups.isEmpty()) {
-            _uiState.update { it.copy(message = "文件中没有规则组") }
+            _uiState.update { it.copy(message = text(R.string.msg_no_groups_in_file)) }
             return
         }
         val problems = RuleValidation.validate(document, container.targetPolicy)
         if (problems.isNotEmpty()) {
             _uiState.update {
                 it.copy(
-                    message = "导入被拒绝：" + problems.take(3).joinToString("；") +
-                        if (problems.size > 3) "…" else "",
+                    message = text(
+                        R.string.msg_import_rejected,
+                        problems.take(3).joinToString("；") +
+                            if (problems.size > 3) "…" else "",
+                    ),
                 )
             }
             return
@@ -429,8 +434,11 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             container.ruleCoordinator.importDocument(document)
             _uiState.update {
                 it.copy(
-                    message = "已导入 ${document.groups.size} 个规则组、" +
-                        "${document.rules().size} 条规则",
+                    message = text(
+                        R.string.msg_imported,
+                        document.groups.size,
+                        document.rules().size,
+                    ),
                 )
             }
         }
@@ -444,7 +452,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }.getOrNull()
             if (text.isNullOrBlank()) {
-                _uiState.update { it.copy(message = "读取文件失败") }
+                _uiState.update { it.copy(message = text(R.string.msg_read_failed)) }
             } else {
                 importJson(text)
             }
@@ -456,14 +464,43 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun exportToUri(uri: Uri) {
         val payload = exportJson()
         viewModelScope.launch {
-            val ok = runCatching {
-                withContext(Dispatchers.IO) {
-                    container.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(payload) }
-                }
-            }.isSuccess
-            _uiState.update { it.copy(message = if (ok) "已导出 ${_uiState.value.groups.size} 个规则组" else "导出失败") }
+            val ok = writeText(uri, payload)
+            _uiState.update {
+                it.copy(
+                    message = if (ok) {
+                        text(R.string.msg_exported_groups, _uiState.value.groups.size)
+                    } else {
+                        text(R.string.msg_export_failed)
+                    },
+                )
+            }
         }
     }
+
+    fun exportLogsToUri(uri: Uri) {
+        viewModelScope.launch {
+            val text = container.fileEventLog.exportText()
+            val ok = text.isNotEmpty() && writeText(uri, text)
+            _uiState.update { it.copy(message = text(if (ok) R.string.msg_logs_exported else R.string.msg_no_logs)) }
+        }
+    }
+
+    fun exportBackupToUri(snapshotId: String, uri: Uri) {
+        viewModelScope.launch {
+            val snapshot = container.backupService.load(snapshotId)
+            val ok = snapshot != null && writeText(uri, BackupCodec.encode(snapshot))
+            _uiState.update { it.copy(message = text(if (ok) R.string.msg_backup_exported else R.string.msg_export_failed)) }
+        }
+    }
+
+    private suspend fun writeText(uri: Uri, text: String): Boolean =
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val stream = container.contentResolver.openOutputStream(uri) ?: return@withContext false
+                stream.bufferedWriter().use { it.write(text) }
+                true
+            }
+        }.getOrDefault(false)
 
     // endregion
 
@@ -485,7 +522,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             container.eventLog.clear()
             _uiState.update { it.copy(logs = emptyList()) }
-            _uiState.update { it.copy(message = "日志已清空") }
+            _uiState.update { it.copy(message = text(R.string.msg_logs_cleared)) }
         }
     }
 
@@ -508,7 +545,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     fun createBackup() {
         viewModelScope.launch {
             val meta = container.backupService.snapshotNow(BackupReason.MANUAL)
-            _uiState.update { it.copy(message = if (meta != null) "已创建备份" else "没有可备份的规则") }
+            _uiState.update { it.copy(message = text(if (meta != null) R.string.msg_backup_created else R.string.msg_nothing_to_backup)) }
             loadBackups()
         }
     }
@@ -530,13 +567,13 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             try {
                 val plan = container.restoreService.restore(snapshotId, scopeOf(groupIds), apply)
                 val message = when {
-                    plan == null -> "快照不存在"
-                    plan.affectedGroupIds.isEmpty() -> "没有需要恢复的改动"
-                    else -> buildString {
-                        append("已恢复 ").append(plan.groups.size).append(" 个组、")
-                        append(plan.ruleCount).append(" 条规则")
-                        if (apply) append("，并已应用")
-                    }
+                    plan == null -> text(R.string.msg_snapshot_missing)
+                    plan.affectedGroupIds.isEmpty() -> text(R.string.msg_no_changes)
+                    else -> text(
+                        if (apply) R.string.msg_restored_applied else R.string.msg_restored,
+                        plan.groups.size,
+                        plan.ruleCount,
+                    )
                 }
                 _uiState.update { it.copy(restorePreview = null, message = message) }
             } finally {
@@ -570,7 +607,7 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             container.statsService.reset()
             val stats = container.statsService.refresh()
             _uiState.update {
-                it.copy(stats = stats, logs = emptyList(), message = "统计与日志已重置")
+                it.copy(stats = stats, logs = emptyList(), message = text(R.string.msg_stats_reset))
             }
         }
     }
@@ -584,10 +621,9 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val drifted = results.count { it.state == RuleState.DRIFTED }
         val failed = results.count { it.state == RuleState.FAILED }
         return buildString {
-            append(label)
-            append(" · $applied/${results.size} 生效")
-            if (drifted > 0) append("，$drifted 条漂移")
-            if (failed > 0) append("，$failed 条失败")
+            append(text(R.string.msg_rule_summary, label, applied, results.size))
+            if (drifted > 0) append(text(R.string.msg_rule_drifted, drifted))
+            if (failed > 0) append(text(R.string.msg_rule_failed, failed))
         }
     }
 
@@ -597,11 +633,14 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val drifted = values.count { it.state == RuleState.DRIFTED }
         val failed = values.count { it.state == RuleState.FAILED }
         return buildString {
-            append("全部规则 · $applied/${values.size} 生效")
-            if (drifted > 0) append("，$drifted 条漂移")
-            if (failed > 0) append("，$failed 条失败")
+            append(text(R.string.msg_all_summary, applied, values.size))
+            if (drifted > 0) append(text(R.string.msg_rule_drifted, drifted))
+            if (failed > 0) append(text(R.string.msg_rule_failed, failed))
         }
     }
+
+    private fun text(id: Int, vararg args: Any): String =
+        container.appContext.getString(id, *args)
 
     companion object {
         private const val SHIZUKU_PACKAGE = "moe.shizuku.privileged.api"

@@ -63,13 +63,13 @@ class AgentGatewayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_latch)
             .setColor(ContextCompat.getColor(this, R.color.ic_launcher_accent))
-            .setContentTitle(if (connected) "局域网连接已连接" else "局域网连接已开启")
+            .setContentTitle(
+                getString(if (connected) R.string.notif_lan_connected else R.string.notif_lan_waiting),
+            )
             .setContentText(
-                if (connected) {
-                    "已连接，可在 Latch 设置中断开"
-                } else {
-                    "等待连接；可在 Latch 设置中断开"
-                },
+                getString(
+                    if (connected) R.string.notif_lan_connected_text else R.string.notif_lan_waiting_text,
+                ),
             )
             .setContentIntent(contentIntent)
             .setOngoing(true)
@@ -78,7 +78,11 @@ class AgentGatewayService : Service() {
 
     private fun createChannel() {
         getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "局域网连接", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(
+                    CHANNEL_ID,
+                    getString(R.string.notif_channel_lan),
+                    NotificationManager.IMPORTANCE_LOW,
+                ),
         )
     }
 

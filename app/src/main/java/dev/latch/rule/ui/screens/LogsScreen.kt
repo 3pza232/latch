@@ -2,6 +2,7 @@ package dev.latch.rule.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,12 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,12 +41,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.log.EventAction
 import dev.latch.rule.core.log.EventLevel
 import dev.latch.rule.core.log.EventSource
@@ -57,12 +61,12 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private enum class LogFilter(val label: String) {
-    ALL("全部"),
-    ISSUES("异常"),
-    APPLY("应用"),
-    VERIFY("校验"),
-    GATEWAY("网关"),
+private enum class LogFilter(val labelRes: Int) {
+    ALL(R.string.logs_filter_all),
+    ISSUES(R.string.logs_filter_issues),
+    APPLY(R.string.logs_filter_apply),
+    VERIFY(R.string.logs_filter_verify),
+    GATEWAY(R.string.logs_filter_gateway),
 }
 
 private val TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")
@@ -78,11 +82,12 @@ fun LogsScreen(
     loading: Boolean,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    onExport: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var filter by remember { mutableStateOf(LogFilter.ALL) }
-    var expandedId by remember { mutableStateOf<String?>(null) }
+    var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
+    var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
 
     val visible = remember(logs, filter) { logs.filter(filter::matches) }
@@ -92,18 +97,21 @@ fun LogsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("运行日志") },
+                title = { Text(stringResource(R.string.logs_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
+                    }
+                    IconButton(onClick = onExport, enabled = logs.isNotEmpty()) {
+                        Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.logs_export))
                     }
                     IconButton(onClick = { confirmClear = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "清空日志")
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.logs_clear_title))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -124,7 +132,7 @@ fun LogsScreen(
                     FilterChip(
                         selected = filter == option,
                         onClick = { filter = option },
-                        label = { Text(option.label) },
+                        label = { Text(stringResource(option.labelRes)) },
                     )
                 }
             }
@@ -139,9 +147,9 @@ fun LogsScreen(
                 }
 
                 visible.isEmpty() -> EmptyState(
-                    title = "暂无日志",
-                    description = "应用、校验、修复和配对都会记录在这里。",
-                    primaryLabel = "刷新",
+                    title = stringResource(R.string.logs_empty_title),
+                    description = stringResource(R.string.logs_empty_description),
+                    primaryLabel = stringResource(R.string.common_refresh),
                     onPrimary = onRefresh,
                 )
 
@@ -168,16 +176,16 @@ fun LogsScreen(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("清空日志？") },
-            text = { Text("将删除全部历史事件，统计的明细也会随之减少。规则本身不受影响。") },
+            title = { Text(stringResource(R.string.logs_clear_title)) },
+            text = { Text(stringResource(R.string.logs_clear_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
                     onClear()
-                }) { Text("清空") }
+                }) { Text(stringResource(R.string.logs_clear)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text("取消") }
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
@@ -200,7 +208,7 @@ private fun LogRow(event: LatchEvent, expanded: Boolean, onClick: () -> Unit) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                actionLabel(event.action),
+                stringResource(actionLabel(event.action)),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -213,7 +221,7 @@ private fun LogRow(event: LatchEvent, expanded: Boolean, onClick: () -> Unit) {
         Spacer(Modifier.height(2.dp))
         Text(
             buildString {
-                append(sourceLabel(event.source))
+                append(stringResource(sourceLabel(event.source)))
                 event.groupName?.let { append(" · ").append(it) }
                 event.ruleName?.let { append(" · ").append(it) }
                 event.outcome?.let { append(" · ").append(it) }
@@ -238,12 +246,12 @@ private fun LogRow(event: LatchEvent, expanded: Boolean, onClick: () -> Unit) {
             )
         }
         if (expanded) {
-            event.expected?.let { Detail("期望", it) }
-            event.actual?.let { Detail("实际", it) }
-            event.command?.let { Detail("命令", it) }
-            event.output?.let { Detail("输出", it) }
-            event.errorCode?.let { Detail("错误码", it) }
-            event.durationMs?.let { Detail("耗时", "${it} ms") }
+            event.expected?.let { Detail(stringResource(R.string.logs_expected), it) }
+            event.actual?.let { Detail(stringResource(R.string.logs_actual), it) }
+            event.command?.let { Detail(stringResource(R.string.logs_command), it) }
+            event.output?.let { Detail(stringResource(R.string.logs_output), it) }
+            event.errorCode?.let { Detail(stringResource(R.string.logs_error_code), it) }
+            event.durationMs?.let { Detail(stringResource(R.string.logs_duration), "${it} ms") }
         }
     }
 }
@@ -271,36 +279,36 @@ private fun levelColor(level: EventLevel): Color {
 private fun formatTime(timestamp: Long): String =
     Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(TIME_FORMAT)
 
-private fun actionLabel(action: EventAction): String = when (action) {
-    EventAction.CREATE -> "新建"
-    EventAction.UPDATE -> "修改"
-    EventAction.DELETE -> "删除"
-    EventAction.ENABLE -> "启用"
-    EventAction.DISABLE -> "停用"
-    EventAction.APPLY -> "应用"
-    EventAction.VERIFY -> "校验"
-    EventAction.REPAIR -> "修复"
-    EventAction.IMPORT -> "导入"
-    EventAction.EXPORT -> "导出"
-    EventAction.BACKUP -> "备份"
-    EventAction.RESTORE -> "恢复"
-    EventAction.PAIR -> "配对成功"
-    EventAction.PAIR_FAILED -> "配对失败"
-    EventAction.GATEWAY_START -> "网关启动"
-    EventAction.GATEWAY_STOP -> "网关停止"
-    EventAction.SKIP -> "跳过"
-    EventAction.ROTATE -> "清理"
-    EventAction.MIGRATE -> "迁移"
+private fun actionLabel(action: EventAction): Int = when (action) {
+    EventAction.CREATE -> R.string.action_create
+    EventAction.UPDATE -> R.string.action_update
+    EventAction.DELETE -> R.string.action_delete
+    EventAction.ENABLE -> R.string.action_enable
+    EventAction.DISABLE -> R.string.action_disable
+    EventAction.APPLY -> R.string.action_apply
+    EventAction.VERIFY -> R.string.action_verify
+    EventAction.REPAIR -> R.string.action_repair
+    EventAction.IMPORT -> R.string.action_import
+    EventAction.EXPORT -> R.string.action_export
+    EventAction.BACKUP -> R.string.action_backup
+    EventAction.RESTORE -> R.string.action_restore
+    EventAction.PAIR -> R.string.action_pair
+    EventAction.PAIR_FAILED -> R.string.action_pair_failed
+    EventAction.GATEWAY_START -> R.string.action_gateway_start
+    EventAction.GATEWAY_STOP -> R.string.action_gateway_stop
+    EventAction.SKIP -> R.string.action_skip
+    EventAction.ROTATE -> R.string.action_rotate
+    EventAction.MIGRATE -> R.string.action_migrate
 }
 
-private fun sourceLabel(source: EventSource): String = when (source) {
-    EventSource.UI -> "手动"
-    EventSource.GATEWAY -> "局域网"
-    EventSource.PERIODIC -> "后台"
-    EventSource.BOOT -> "开机"
-    EventSource.SYSTEM -> "系统"
-    EventSource.IMPORT -> "导入"
-    EventSource.RESTORE -> "恢复"
+private fun sourceLabel(source: EventSource): Int = when (source) {
+    EventSource.UI -> R.string.source_ui
+    EventSource.GATEWAY -> R.string.source_gateway
+    EventSource.PERIODIC -> R.string.source_periodic
+    EventSource.BOOT -> R.string.source_boot
+    EventSource.SYSTEM -> R.string.source_system
+    EventSource.IMPORT -> R.string.source_import
+    EventSource.RESTORE -> R.string.source_restore
 }
 
 private fun LogFilter.matches(event: LatchEvent): Boolean = when (this) {

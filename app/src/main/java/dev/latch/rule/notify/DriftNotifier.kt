@@ -27,12 +27,17 @@ class DriftNotifier(private val context: Context) {
         }
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "规则状态", NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.notif_channel_drift),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
         )
-        val text = buildString {
-            if (drifted > 0) append("$drifted 条漂移")
-            if (failed > 0) append(if (isEmpty()) "" else "，").append("$failed 条失败")
-            append("；自动修复未成功，请打开 Latch 处理。")
+        val text = when {
+            drifted > 0 && failed > 0 ->
+                context.getString(R.string.notif_drift_both, drifted, failed)
+            drifted > 0 -> context.getString(R.string.notif_drift_only, drifted)
+            else -> context.getString(R.string.notif_failed_only, failed)
         }
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -45,7 +50,7 @@ class DriftNotifier(private val context: Context) {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_latch)
-            .setContentTitle("规则自动修复失败")
+            .setContentTitle(context.getString(R.string.notif_drift_title))
             .setContentText(text)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)

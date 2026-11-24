@@ -21,7 +21,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.data.InstalledApp
 
 @Composable
@@ -42,14 +44,14 @@ fun AppPickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.medium,
-        title = { Text("选择目标应用") },
+        title = { Text(stringResource(R.string.common_pick_app)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
                     singleLine = true,
-                    placeholder = { Text("搜索应用或包名") },
+                    placeholder = { Text(stringResource(R.string.common_search_app)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
@@ -63,7 +65,7 @@ fun AppPickerDialog(
                         ) {
                             Text(app.label, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                app.packageName + if (app.isSystem) " · 系统" else "",
+                                app.packageName + if (app.isSystem) stringResource(R.string.common_system_suffix) else "",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -75,7 +77,7 @@ fun AppPickerDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         },
     )
 }

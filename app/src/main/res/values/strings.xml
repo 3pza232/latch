@@ -1,4 +1,367 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Latch</string>
+
+    <!-- Common -->
+    <string name="common_cancel">取消</string>
+    <string name="common_save">保存</string>
+    <string name="common_create">创建</string>
+    <string name="common_delete">删除</string>
+    <string name="common_back">返回</string>
+    <string name="common_close">关闭</string>
+    <string name="common_refresh">刷新</string>
+    <string name="common_view">查看</string>
+    <string name="common_system">系统</string>
+    <string name="common_system_suffix"> · 系统</string>
+    <string name="common_search_app">搜索应用或包名</string>
+    <string name="common_pick_app">选择目标应用</string>
+    <string name="common_name">名称</string>
+    <string name="common_description">说明（可选）</string>
+
+    <!-- Rule state -->
+    <string name="status_applied">已生效</string>
+    <string name="status_drifted">已漂移</string>
+    <string name="status_failed">失败</string>
+    <string name="status_pending">待应用</string>
+    <string name="status_disabled">未启用</string>
+
+    <!-- Relative time -->
+    <string name="time_never_checked">尚未校验</string>
+    <string name="time_just_checked">刚刚校验</string>
+    <string name="time_minutes_ago">%1$d 分钟前校验</string>
+    <string name="time_hours_ago">%1$d 小时前校验</string>
+    <string name="time_days_ago">%1$d 天前校验</string>
+
+    <!-- Shizuku -->
+    <string name="shizuku_ready">已连接 · 可以应用规则</string>
+    <string name="shizuku_not_granted">已运行 · 需要授权本应用</string>
+    <string name="shizuku_unavailable">未运行 · 请在手机上启动 Shizuku</string>
+    <string name="shizuku_open">打开 Shizuku</string>
+    <string name="shizuku_grant">授权</string>
+    <string name="shizuku_recheck">重新检测</string>
+
+    <!-- Group summary -->
+    <string name="group_closed">已关闭</string>
+    <string name="summary_applied">%1$d/%2$d 生效</string>
+    <string name="summary_drifted">%1$d 漂移</string>
+    <string name="summary_failed">%1$d 失败</string>
+    <string name="summary_disabled">%1$d 停用</string>
+    <string name="summary_suppressed">%1$d 被覆盖</string>
+    <string name="summary_blocked">%1$d 受保护</string>
+    <string name="summary_partial_drifted">部分漂移</string>
+    <string name="summary_partial_failed">部分失败</string>
+    <string name="summary_partial_pending">部分待应用</string>
+
+    <!-- Rule row -->
+    <string name="rule_expected_actual">期望 %1$s · 实际 %2$s</string>
+    <string name="rule_reason">原因：%1$s</string>
+    <string name="rule_covered_by">被「%1$s」覆盖</string>
+
+    <!-- Home -->
+    <string name="home_verify_all">校验全部</string>
+    <string name="home_settings">设置</string>
+    <string name="home_empty_title">还没有规则组</string>
+    <string name="home_empty_description">先新建一个规则组，再往里添加规则；也可以直接导入 JSON。</string>
+    <string name="home_new_group">新建规则组</string>
+    <string name="home_import">导入 JSON</string>
+    <string name="home_selected_count">已选择 %1$d 个</string>
+    <string name="home_delete_selected">删除所选</string>
+    <string name="home_clear_selection">取消选择</string>
+    <string name="home_delete_title">删除 %1$d 个规则组？</string>
+    <string name="home_delete_body">将同时删除其中的 %1$d 条规则，系统上已生效的设置不会被自动还原。</string>
+
+    <!-- Group screen -->
+    <string name="group_rule_count">%1$d 条规则</string>
+    <string name="group_apply">应用</string>
+    <string name="group_applying">应用中</string>
+    <string name="group_more">更多</string>
+    <string name="group_edit_info">编辑名称与说明</string>
+    <string name="group_delete">删除规则组</string>
+    <string name="group_delete_title">删除规则组？</string>
+    <string name="group_delete_body">将同时删除组内 %1$d 条规则，系统上已生效的设置不会被自动还原。</string>
+    <string name="group_selected_count">已选择 %1$d 条</string>
+    <string name="group_delete_selected_title">删除 %1$d 条规则？</string>
+    <string name="group_delete_irreversible">删除后不可撤销，系统上已生效的设置不会被自动还原。</string>
+    <string name="group_add_rule">添加规则到本组</string>
+    <string name="group_edit_title">编辑规则组</string>
+
+    <!-- Rule editor -->
+    <string name="editor_new">新建规则</string>
+    <string name="editor_edit">编辑规则</string>
+    <string name="editor_name">规则名称</string>
+    <string name="editor_name_hint">留空则使用能力名称</string>
+    <string name="editor_target">目标应用</string>
+    <string name="editor_pick_app">选择应用</string>
+    <string name="editor_capability">能力类型</string>
+    <string name="editor_tab_appops">AppOps</string>
+    <string name="editor_tab_permission">权限</string>
+    <string name="editor_tab_force_stop">强制停止</string>
+    <string name="editor_tab_enabled">启停应用</string>
+    <string name="editor_desc_permission">授予或撤销运行时权限；授予会覆盖系统设置里的拒绝。</string>
+    <string name="editor_desc_force_stop">立即结束进程，之后应用可能自行重启。</string>
+    <string name="editor_desc_enabled">启用或停用整个应用包。</string>
+    <string name="editor_desc_appops">按系统操作权限限制能力，不改变运行时权限。</string>
+    <string name="editor_op">AppOps 项</string>
+    <string name="editor_mode">模式</string>
+    <string name="editor_mode_hint">ignore = 拒绝；allow = 允许；default = 清除限制，由系统决定实际值</string>
+    <string name="editor_scope">作用域</string>
+    <string name="editor_scope_uid">UID 模式</string>
+    <string name="editor_scope_package">包级</string>
+    <string name="editor_scope_hint">UID 模式作用于整个 uid，通常更稳；包级只针对该应用包</string>
+    <string name="editor_permission">权限</string>
+    <string name="editor_action">动作</string>
+    <string name="permission_allow">允许</string>
+    <string name="permission_deny">禁止</string>
+    <string name="editor_permission_hint">允许：强制授予运行时权限；禁止：收回运行时权限。</string>
+    <string name="editor_force_stop_hint">强制停止会立即结束目标进程，重启或重新启动后可能恢复。</string>
+    <string name="editor_target_state">目标状态</string>
+    <string name="editor_enable_app">启用应用</string>
+    <string name="editor_disable_app">停用应用</string>
+    <string name="editor_enabled_hint">部分系统或厂商保护策略可能拒绝停用，失败时会在校验中显示原因。</string>
+    <string name="editor_save_rule">保存规则</string>
+    <string name="editor_delete_rule">删除规则</string>
+    <string name="editor_delete_title">删除规则？</string>
+    <string name="editor_delete_body">删除后不可撤销，系统上已生效的设置不会被自动还原。</string>
+    <string name="editor_error_pick_app">请选择目标应用</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_lan">局域网连接</string>
+    <string name="settings_lan_idle">未连接</string>
+    <string name="settings_lan_idle_sub">在同一局域网内管理规则</string>
+    <string name="settings_connect">连接</string>
+    <string name="settings_waiting">等待连接</string>
+    <string name="settings_show_code">显示配对码</string>
+    <string name="settings_disconnect">断开</string>
+    <string name="settings_connected">已连接</string>
+    <string name="settings_lan_address">局域网 %1$s</string>
+    <string name="settings_start_failed">无法启动</string>
+    <string name="settings_port_unavailable">端口 %1$d 不可用</string>
+    <string name="settings_retry">重试</string>
+    <string name="settings_selfcheck">自检</string>
+    <string name="settings_auto_open">打开应用时自动校验</string>
+    <string name="settings_auto_open_sub">启动后立即核对所有启用规则</string>
+    <string name="settings_auto_boot">开机自检</string>
+    <string name="settings_auto_boot_sub">重启后自动核对一次（需 Shizuku 已授权）</string>
+    <string name="settings_periodic">定期自检</string>
+    <string name="settings_periodic_sub">后台按间隔校验；发现漂移会自动重新应用</string>
+    <string name="settings_period_off">关闭</string>
+    <string name="settings_period_15">15 分钟</string>
+    <string name="settings_period_30">30 分钟</string>
+    <string name="settings_period_60">60 分钟</string>
+    <string name="settings_notify">修复失败时通知</string>
+    <string name="settings_notify_sub">自动修复后仍有漂移时发送通知</string>
+    <string name="settings_reapply">覆盖解除后自动应用</string>
+    <string name="settings_reapply_sub">覆盖规则关闭或删除后，重新下发被覆盖的规则</string>
+    <string name="settings_hide_recents">隐藏最近任务</string>
+    <string name="settings_hide_recents_sub">从最近任务列表隐藏 Latch</string>
+    <string name="settings_diagnostics">诊断</string>
+    <string name="settings_logs">运行日志</string>
+    <string name="settings_logs_sub">查看应用、校验、修复与配对记录</string>
+    <string name="settings_backups">备份与恢复</string>
+    <string name="settings_backups_sub">自动保存规则快照，可按规则组恢复</string>
+    <string name="settings_stats">统计</string>
+    <string name="settings_stats_sub">应用与修复次数、活跃天数、最近 7 天</string>
+    <string name="settings_rule_data">规则数据</string>
+    <string name="settings_rule_data_hint">JSON 格式，导入按规则组 id 合并；保存在 files/rules.json，覆盖安装保留。</string>
+    <string name="settings_import">导入</string>
+    <string name="settings_export">导出</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_rules">规则</string>
+    <string name="settings_rules_summary">%1$d 个规则组 / %2$d 条规则</string>
+    <string name="settings_last_check">上次校验</string>
+    <string name="settings_checked">已校验</string>
+    <string name="settings_not_checked">尚未校验</string>
+
+    <!-- Logs -->
+    <string name="logs_title">运行日志</string>
+    <string name="logs_filter_all">全部</string>
+    <string name="logs_filter_issues">异常</string>
+    <string name="logs_filter_apply">应用</string>
+    <string name="logs_filter_verify">校验</string>
+    <string name="logs_filter_gateway">网关</string>
+    <string name="logs_empty_title">暂无日志</string>
+    <string name="logs_empty_description">应用、校验、修复和配对都会记录在这里。</string>
+    <string name="logs_clear_title">清空日志？</string>
+    <string name="logs_clear_body">将删除全部历史事件，统计的明细也会随之减少。规则本身不受影响。</string>
+    <string name="logs_clear">清空</string>
+    <string name="logs_export">导出日志</string>
+    <string name="logs_expected">期望</string>
+    <string name="logs_actual">实际</string>
+    <string name="logs_command">命令</string>
+    <string name="logs_output">输出</string>
+    <string name="logs_error_code">错误码</string>
+    <string name="logs_duration">耗时</string>
+
+    <!-- Event actions -->
+    <string name="action_create">新建</string>
+    <string name="action_update">修改</string>
+    <string name="action_delete">删除</string>
+    <string name="action_enable">启用</string>
+    <string name="action_disable">停用</string>
+    <string name="action_apply">应用</string>
+    <string name="action_verify">校验</string>
+    <string name="action_repair">修复</string>
+    <string name="action_import">导入</string>
+    <string name="action_export">导出</string>
+    <string name="action_backup">备份</string>
+    <string name="action_restore">恢复</string>
+    <string name="action_pair">配对成功</string>
+    <string name="action_pair_failed">配对失败</string>
+    <string name="action_gateway_start">网关启动</string>
+    <string name="action_gateway_stop">网关停止</string>
+    <string name="action_skip">跳过</string>
+    <string name="action_rotate">清理</string>
+    <string name="action_migrate">迁移</string>
+
+    <!-- Event sources -->
+    <string name="source_ui">手动</string>
+    <string name="source_gateway">局域网</string>
+    <string name="source_periodic">后台</string>
+    <string name="source_boot">开机</string>
+    <string name="source_system">系统</string>
+    <string name="source_import">导入</string>
+    <string name="source_restore">恢复</string>
+
+    <!-- Pairing -->
+    <string name="pairing_title">局域网连接</string>
+    <string name="pairing_address">地址</string>
+    <string name="pairing_code">配对码</string>
+    <string name="pairing_copy">复制连接信息</string>
+    <string name="pairing_copied">已复制</string>
+    <string name="pairing_waiting">等待连接…</string>
+    <string name="pairing_locked">尝试次数过多，请稍后重试</string>
+    <string name="pairing_clip_label">Latch 连接信息</string>
+    <string name="pairing_info">地址：%1$s\n配对码：%2$s</string>
+
+    <!-- Backups -->
+    <string name="backups_title">备份与恢复</string>
+    <string name="backups_create">立即备份</string>
+    <string name="backups_restore_points">恢复点</string>
+    <string name="backups_all">全部快照</string>
+    <string name="backups_ago_hour">1 小时前</string>
+    <string name="backups_ago_day">1 天前</string>
+    <string name="backups_ago_3days">3 天前</string>
+    <string name="backups_ago_7days">7 天前</string>
+    <string name="backups_ago_30days">30 天前</string>
+    <string name="backups_no_point">无可用恢复点</string>
+    <string name="backups_restore">恢复</string>
+    <string name="backups_empty_title">还没有备份</string>
+    <string name="backups_empty_description">修改规则后会自动创建恢复点，也可以点右上角立即备份。</string>
+    <string name="backups_point_summary">%1$s · %2$d 组 / %3$d 条</string>
+    <string name="backups_snapshot_summary">%1$d 组 / %2$d 条</string>
+    <string name="backups_reason_manual">手动</string>
+    <string name="backups_reason_auto">自动</string>
+    <string name="backups_reason_pre_restore">恢复前</string>
+    <string name="backups_reason_pre_migration">迁移前</string>
+    <string name="backups_dialog_title">恢复备份</string>
+    <string name="backups_dialog_target">恢复到 %1$s 的状态</string>
+    <string name="backups_scope_all">全部规则</string>
+    <string name="backups_scope_groups">选择规则组</string>
+    <string name="backups_no_groups">当前没有规则组</string>
+    <string name="backups_calculating">正在计算改动…</string>
+    <string name="backups_no_changes">与当前规则一致，没有需要恢复的改动</string>
+    <string name="backups_change_summary">将更改 %1$d 个组：新增 %2$d、替换 %3$d、删除 %4$d；恢复后共 %5$d 组 / %6$d 条</string>
+    <string name="backups_change_item">· %1$s：%2$s（%3$d 条）</string>
+    <string name="backups_more_groups">… 还有 %1$d 个组</string>
+    <string name="backups_apply_now">恢复后立即应用</string>
+    <string name="backups_apply_hint">默认只恢复配置，不改变系统状态</string>
+    <string name="backups_export">导出快照</string>
+    <string name="change_added">新增</string>
+    <string name="change_replaced">替换</string>
+    <string name="change_removed">删除</string>
+    <string name="change_unchanged">不变</string>
+
+    <!-- Statistics -->
+    <string name="stats_title">统计</string>
+    <string name="stats_overview">概览</string>
+    <string name="stats_active_days">活跃天数</string>
+    <string name="stats_total_days">%1$d 天记录</string>
+    <string name="stats_streak">连续天数</string>
+    <string name="stats_streak_sub">有运行记录</string>
+    <string name="stats_apply_runs">应用次数</string>
+    <string name="stats_apply_runs_sub">下发轮次</string>
+    <string name="stats_verify_runs">校验次数</string>
+    <string name="stats_verify_runs_sub">校验轮次</string>
+    <string name="stats_repaired">修复成功</string>
+    <string name="stats_failed">修复失败</string>
+    <string name="stats_rule_unit">条规则</string>
+    <string name="stats_repair_rate">修复成功率</string>
+    <string name="stats_rate_sub">成功 / (成功 + 失败)</string>
+    <string name="stats_drifted">漂移检出</string>
+    <string name="stats_last_7_days">最近 7 天</string>
+    <string name="stats_no_records">最近 7 天没有记录</string>
+    <string name="stats_legend_ok">运行正常</string>
+    <string name="stats_legend_bad">当天有失败 / 漂移</string>
+    <string name="stats_chart_hint">柱高为当日应用、校验、修复的轮次</string>
+    <string name="stats_rule_status">规则状态</string>
+    <string name="stats_rules_total">规则总数</string>
+    <string name="stats_applied">已生效</string>
+    <string name="stats_drifted_count">漂移</string>
+    <string name="stats_failed_count">失败</string>
+    <string name="stats_pending">待应用</string>
+    <string name="stats_disabled">未启用</string>
+    <string name="stats_other">其他</string>
+    <string name="stats_last_check">最近校验</string>
+    <string name="stats_first_record">首次记录</string>
+    <string name="stats_none">暂无</string>
+    <string name="stats_footnote">统计基于事件日志聚合；清空日志不会重置这里已归档的天数，重置统计会同时清空日志。</string>
+    <string name="stats_reset">重置统计与日志</string>
+    <string name="stats_reset_title">重置统计？</string>
+    <string name="stats_reset_body">将清空累计统计与全部运行日志，规则本身不受影响。</string>
+    <string name="stats_reset_confirm">重置</string>
+    <string name="stats_unavailable">统计暂不可用</string>
+
+    <!-- Conflict dialog -->
+    <string name="conflict_title">规则冲突</string>
+    <string name="conflict_intro">新规则与以下现有规则声明了不同的值：</string>
+    <string name="conflict_more">… 还有 %1$d 条</string>
+    <string name="conflict_overwrite">新规则覆盖</string>
+    <string name="conflict_keep">保留现有</string>
+    <string name="conflict_hint_overwrite">保存后，现有规则显示为被新规则覆盖。</string>
+    <string name="conflict_hint_keep">保存后，新规则显示为被现有规则覆盖，暂不生效。</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel_drift">规则状态</string>
+    <string name="notif_drift_title">规则自动修复失败</string>
+    <string name="notif_drift_both">%1$d 条漂移，%2$d 条失败；自动修复未成功，请打开 Latch 处理。</string>
+    <string name="notif_drift_only">%1$d 条漂移；自动修复未成功，请打开 Latch 处理。</string>
+    <string name="notif_failed_only">%1$d 条失败；自动修复未成功，请打开 Latch 处理。</string>
+    <string name="notif_channel_lan">局域网连接</string>
+    <string name="notif_lan_waiting">局域网连接已开启</string>
+    <string name="notif_lan_connected">局域网连接已连接</string>
+    <string name="notif_lan_waiting_text">等待连接；可在 Latch 设置中断开</string>
+    <string name="notif_lan_connected_text">已连接，可在 Latch 设置中断开</string>
+
+    <!-- ViewModel messages -->
+    <string name="msg_shizuku_missing">未安装 Shizuku</string>
+    <string name="msg_no_enabled_rules">%1$s · 没有启用的规则</string>
+    <string name="msg_import_failed">导入失败：%1$s</string>
+    <string name="msg_import_rejected">导入被拒绝：%1$s</string>
+    <string name="msg_no_groups_in_file">文件中没有规则组</string>
+    <string name="msg_imported">已导入 %1$d 个规则组、%2$d 条规则</string>
+    <string name="msg_read_failed">读取文件失败</string>
+    <string name="msg_exported_groups">已导出 %1$d 个规则组</string>
+    <string name="msg_export_failed">导出失败</string>
+    <string name="msg_logs_exported">日志已导出</string>
+    <string name="msg_no_logs">没有可导出的日志</string>
+    <string name="msg_backup_exported">快照已导出</string>
+    <string name="msg_logs_cleared">日志已清空</string>
+    <string name="msg_backup_created">已创建备份</string>
+    <string name="msg_nothing_to_backup">没有可备份的规则</string>
+    <string name="msg_snapshot_missing">快照不存在</string>
+    <string name="msg_no_changes">没有需要恢复的改动</string>
+    <string name="msg_restored">已恢复 %1$d 个组、%2$d 条规则</string>
+    <string name="msg_restored_applied">已恢复 %1$d 个组、%2$d 条规则，并已应用</string>
+    <string name="msg_stats_reset">统计与日志已重置</string>
+    <string name="msg_saved_covered">已保存，新规则被现有规则覆盖</string>
+    <string name="msg_not_saved">未保存：%1$s</string>
+    <string name="msg_apply_failed">应用失败：%1$s</string>
+    <string name="msg_verify_failed">校验失败：%1$s</string>
+    <string name="msg_rule_summary">%1$s · %2$d/%3$d 生效</string>
+    <string name="msg_rule_drifted">，%1$d 条漂移</string>
+    <string name="msg_rule_failed">，%1$d 条失败</string>
+    <string name="msg_all_summary">全部规则 · %1$d/%2$d 生效</string>
+    <string name="msg_unknown_error">未知错误</string>
 </resources>

@@ -37,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.OpScope
@@ -49,7 +51,12 @@ import dev.latch.rule.ui.components.AppPickerDialog
 import dev.latch.rule.ui.theme.LatchDimens
 import java.util.UUID
 
-private val CAPABILITY_TABS = listOf("AppOps", "权限", "强制停止", "启停应用")
+private val CAPABILITY_TABS = listOf(
+    R.string.editor_tab_appops,
+    R.string.editor_tab_permission,
+    R.string.editor_tab_force_stop,
+    R.string.editor_tab_enabled,
+)
 
 private val COMMON_PERMISSIONS = listOf(
     "android.permission.CAMERA",
@@ -117,10 +124,20 @@ fun RuleEditorScreen(
     var pickerOpen by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val pickAppError = stringResource(R.string.editor_error_pick_app)
+    val forceStopName = stringResource(R.string.editor_tab_force_stop)
+    val enableName = stringResource(R.string.editor_enable_app)
+    val disableName = stringResource(R.string.editor_disable_app)
+    val allowName = stringResource(R.string.permission_allow)
+    val denyName = stringResource(R.string.permission_deny)
+    fun permissionName(capability: Capability): String {
+        val mode = (capability as? Capability.PermissionState)?.mode ?: return ""
+        return if (mode == PermissionMode.ALLOW) allowName else denyName
+    }
 
     fun save() {
         if (packageName.isBlank()) {
-            error = "请选择目标应用"
+            error = pickAppError
             return
         }
         val capability = when (capabilityTab) {
@@ -132,7 +149,9 @@ fun RuleEditorScreen(
         onSave(
             Rule(
                 id = initialRule?.id ?: UUID.randomUUID().toString(),
-                name = ruleName.ifBlank { defaultRuleName(capability) },
+                name = ruleName.ifBlank {
+                    defaultRuleName(capability, forceStopName, enableName, disableName, permissionName(capability))
+                },
                 targetPackage = packageName,
                 capability = capability,
                 enabled = initialRule?.enabled ?: true,
@@ -145,13 +164,13 @@ fun RuleEditorScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (initialRule == null) "新建规则" else "编辑规则") },
+                title = { Text(stringResource(if (initialRule == null) R.string.editor_new else R.string.editor_edit)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
-                actions = { TextButton(onClick = ::save) { Text("保存") } },
+                actions = { TextButton(onClick = ::save) { Text(stringResource(R.string.common_save)) } },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -168,43 +187,43 @@ fun RuleEditorScreen(
             OutlinedTextField(
                 value = ruleName,
                 onValueChange = { ruleName = it },
-                label = { Text("规则名称") },
-                placeholder = { Text("留空则使用能力名称") },
+                label = { Text(stringResource(R.string.editor_name)) },
+                placeholder = { Text(stringResource(R.string.editor_name_hint)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Column {
-                SectionLabel("目标应用")
+                SectionLabel(stringResource(R.string.editor_target))
                 OutlinedButton(onClick = { pickerOpen = true }, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         when {
                             appLabel.isNotBlank() -> "$appLabel · $packageName"
                             packageName.isNotBlank() -> packageName
-                            else -> "选择应用"
+                            else -> stringResource(R.string.editor_pick_app)
                         },
                     )
                 }
             }
 
             Column {
-                SectionLabel("能力类型")
+                SectionLabel(stringResource(R.string.editor_capability))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CAPABILITY_TABS.forEachIndexed { index, label ->
                         FilterChip(
                             selected = capabilityTab == index,
                             onClick = { capabilityTab = index },
-                            label = { Text(label) },
+                            label = { Text(stringResource(label)) },
                         )
                     }
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
                     when (capabilityTab) {
-                        1 -> "授予或撤销运行时权限；授予会覆盖系统设置里的拒绝。"
-                        2 -> "立即结束进程，之后应用可能自行重启。"
-                        3 -> "启用或停用整个应用包。"
-                        else -> "按系统操作权限限制能力，不改变运行时权限。"
+                        1 -> stringResource(R.string.editor_desc_permission)
+                        2 -> stringResource(R.string.editor_desc_force_stop)
+                        3 -> stringResource(R.string.editor_desc_enabled)
+                        else -> stringResource(R.string.editor_desc_appops)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -214,7 +233,7 @@ fun RuleEditorScreen(
             when (capabilityTab) {
                 0 -> {
                     Column {
-                        SectionLabel("AppOps 项")
+                        SectionLabel(stringResource(R.string.editor_op))
                         DropdownField(
                             value = OpLabels.label(op),
                             options = OpLabels.knownOps().map { it to "${OpLabels.label(it)} · $it" },
@@ -222,7 +241,7 @@ fun RuleEditorScreen(
                         )
                     }
                     Column {
-                        SectionLabel("模式")
+                        SectionLabel(stringResource(R.string.editor_mode))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OpMode.entries.forEach { entry ->
                                 FilterChip(
@@ -234,28 +253,28 @@ fun RuleEditorScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "ignore = 拒绝；allow = 允许；default = 清除限制，由系统决定实际值",
+                            stringResource(R.string.editor_mode_hint),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Column {
-                        SectionLabel("作用域")
+                        SectionLabel(stringResource(R.string.editor_scope))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = scope == OpScope.UID,
                                 onClick = { scope = OpScope.UID },
-                                label = { Text("UID 模式") },
+                                label = { Text(stringResource(R.string.editor_scope_uid)) },
                             )
                             FilterChip(
                                 selected = scope == OpScope.PACKAGE,
                                 onClick = { scope = OpScope.PACKAGE },
-                                label = { Text("包级") },
+                                label = { Text(stringResource(R.string.editor_scope_package)) },
                             )
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "UID 模式作用于整个 uid，通常更稳；包级只针对该应用包",
+                            stringResource(R.string.editor_scope_hint),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -263,7 +282,7 @@ fun RuleEditorScreen(
                 }
                 1 -> {
                     Column {
-                        SectionLabel("权限")
+                        SectionLabel(stringResource(R.string.editor_permission))
                         DropdownField(
                             value = permission,
                             options = COMMON_PERMISSIONS.map { it to it },
@@ -273,19 +292,29 @@ fun RuleEditorScreen(
                         )
                     }
                     Column {
-                        SectionLabel("动作")
+                        SectionLabel(stringResource(R.string.editor_action))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             permissionModes().forEach { entry ->
                                 FilterChip(
                                     selected = permissionMode == entry,
                                     onClick = { permissionMode = entry },
-                                    label = { Text(entry.label) },
+                                    label = {
+                                        Text(
+                                            stringResource(
+                                                if (entry == PermissionMode.ALLOW) {
+                                                    R.string.permission_allow
+                                                } else {
+                                                    R.string.permission_deny
+                                                },
+                                            ),
+                                        )
+                                    },
                                 )
                             }
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "允许：强制授予运行时权限；禁止：收回运行时权限。",
+                            stringResource(R.string.editor_permission_hint),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -293,29 +322,29 @@ fun RuleEditorScreen(
                 }
                 2 -> {
                     Text(
-                        "强制停止会立即结束目标进程，重启或重新启动后可能恢复。",
+                        stringResource(R.string.editor_force_stop_hint),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 3 -> {
                     Column {
-                        SectionLabel("目标状态")
+                        SectionLabel(stringResource(R.string.editor_target_state))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = appEnabled,
                                 onClick = { appEnabled = true },
-                                label = { Text("启用应用") },
+                                label = { Text(stringResource(R.string.editor_enable_app)) },
                             )
                             FilterChip(
                                 selected = !appEnabled,
                                 onClick = { appEnabled = false },
-                                label = { Text("停用应用") },
+                                label = { Text(stringResource(R.string.editor_disable_app)) },
                             )
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "部分系统或厂商保护策略可能拒绝停用，失败时会在校验中显示原因。",
+                            stringResource(R.string.editor_enabled_hint),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -328,14 +357,14 @@ fun RuleEditorScreen(
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
 
-            Button(onClick = ::save, modifier = Modifier.fillMaxWidth()) { Text("保存规则") }
+            Button(onClick = ::save, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.editor_save_rule)) }
 
             if (onDelete != null && initialRule != null) {
                 TextButton(
                     onClick = { confirmDelete = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("删除规则", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.editor_delete_rule), color = MaterialTheme.colorScheme.error)
                 }
             }
 
@@ -358,16 +387,16 @@ fun RuleEditorScreen(
     if (confirmDelete && initialRule != null && onDelete != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("删除规则？") },
-            text = { Text("删除后不可撤销，系统上已生效的设置不会被自动还原。") },
+            title = { Text(stringResource(R.string.editor_delete_title)) },
+            text = { Text(stringResource(R.string.editor_delete_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     onDelete(initialRule.id)
-                }) { Text("删除") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
@@ -412,9 +441,16 @@ private fun DropdownField(
 
 private fun permissionModes(): List<PermissionMode> = listOf(PermissionMode.ALLOW, PermissionMode.DENY)
 
-private fun defaultRuleName(capability: Capability): String = when (capability) {
+private fun defaultRuleName(
+    capability: Capability,
+    forceStopName: String,
+    enableName: String,
+    disableName: String,
+    permissionName: String,
+): String = when (capability) {
     is Capability.AppOp -> OpLabels.label(capability.op)
-    is Capability.PermissionState -> "${capability.mode.label} ${capability.permission.substringAfterLast('.')}"
-    Capability.ForceStop -> "强制停止"
-    is Capability.SetEnabled -> if (capability.enabled) "启用应用" else "停用应用"
+    is Capability.PermissionState ->
+        "$permissionName ${capability.permission.substringAfterLast('.')}"
+    Capability.ForceStop -> forceStopName
+    is Capability.SetEnabled -> if (capability.enabled) enableName else disableName
 }

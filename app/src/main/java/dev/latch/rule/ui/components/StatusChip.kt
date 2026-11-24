@@ -8,14 +8,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import dev.latch.rule.R
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.ui.theme.LatchPalette
 
@@ -31,13 +33,16 @@ fun statusColor(state: RuleState): Color {
     }
 }
 
-fun statusLabel(state: RuleState): String = when (state) {
-    RuleState.APPLIED -> "已生效"
-    RuleState.DRIFTED -> "已漂移"
-    RuleState.FAILED -> "失败"
-    RuleState.PENDING -> "待应用"
-    RuleState.DISABLED -> "未启用"
-}
+@Composable
+fun statusLabel(state: RuleState): String = stringResource(
+    when (state) {
+        RuleState.APPLIED -> R.string.status_applied
+        RuleState.DRIFTED -> R.string.status_drifted
+        RuleState.FAILED -> R.string.status_failed
+        RuleState.PENDING -> R.string.status_pending
+        RuleState.DISABLED -> R.string.status_disabled
+    },
+)
 
 @Composable
 fun StatusChip(state: RuleState, modifier: Modifier = Modifier, label: String = statusLabel(state)) {

@@ -2,14 +2,14 @@ package dev.latch.rule.data
 
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.LatchEvent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Append-only NDJSON log, one file per local day.
@@ -36,6 +36,17 @@ class FileEventLog(
     }
 
     override suspend fun recent(limit: Int): List<LatchEvent> = query(limit = limit)
+
+    /** Chronological NDJSON of every retained event, for export. */
+    suspend fun exportText(): String = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            runCatching {
+                logFiles()
+                    .flatMap { file -> file.readLines().mapNotNull(EventLogCodec::decode) }
+                    .joinToString("\n") { EventLogCodec.encode(it) }
+            }.getOrDefault("")
+        }
+    }
 
     override suspend fun clear() = withContext(Dispatchers.IO) {
         mutex.withLock {

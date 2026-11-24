@@ -19,7 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.data.StoredResult
@@ -66,14 +68,14 @@ fun RuleRow(
                 result?.let {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        "期望 ${it.expected} · 实际 ${it.actual}",
+                        stringResource(R.string.rule_expected_actual, it.expected, it.actual),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     it.message?.takeIf { message -> message.isNotBlank() }?.let { message ->
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            "原因：$message",
+                            stringResource(R.string.rule_reason, message),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error,
                         )

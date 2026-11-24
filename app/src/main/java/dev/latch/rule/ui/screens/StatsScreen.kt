@@ -37,13 +37,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.stats.DayStats
 import dev.latch.rule.core.stats.StatsSnapshot
 import dev.latch.rule.ui.LatchViewModel
-import dev.latch.rule.ui.components.RelativeTime
+import dev.latch.rule.ui.components.relativeTimeText
 import dev.latch.rule.ui.theme.LatchDimens
 import dev.latch.rule.ui.theme.LatchPalette
 
@@ -65,15 +67,15 @@ fun StatsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("统计") },
+                title = { Text(stringResource(R.string.stats_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -98,51 +100,89 @@ fun StatsScreen(
                 }
 
                 stats == null -> Text(
-                    "统计暂不可用",
+                    stringResource(R.string.stats_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
                 else -> {
-                    SectionTitle("概览")
+                    SectionTitle(stringResource(R.string.stats_overview))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Kpi("活跃天数", "${stats.activeDays}", "${stats.totalDays} 天记录", Modifier.weight(1f))
-                        Kpi("连续天数", "${stats.streakDays}", "有运行记录", Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Kpi("应用次数", "${stats.applyRuns}", "下发轮次", Modifier.weight(1f))
-                        Kpi("校验次数", "${stats.verifyRuns}", "校验轮次", Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Kpi("修复成功", "${stats.repaired}", "条规则", Modifier.weight(1f))
-                        Kpi("修复失败", "${stats.failed}", "条规则", Modifier.weight(1f))
+                        Kpi(
+                            stringResource(R.string.stats_active_days),
+                            "${stats.activeDays}",
+                            stringResource(R.string.stats_total_days, stats.totalDays),
+                            Modifier.weight(1f),
+                        )
+                        Kpi(
+                            stringResource(R.string.stats_streak),
+                            "${stats.streakDays}",
+                            stringResource(R.string.stats_streak_sub),
+                            Modifier.weight(1f),
+                        )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Kpi(
-                            "修复成功率",
-                            stats.repairSuccessRate?.let { "$it%" } ?: "—",
-                            "成功 / (成功 + 失败)",
+                            stringResource(R.string.stats_apply_runs),
+                            "${stats.applyRuns}",
+                            stringResource(R.string.stats_apply_runs_sub),
                             Modifier.weight(1f),
                         )
-                        Kpi("漂移检出", "${stats.drifted}", "条规则", Modifier.weight(1f))
+                        Kpi(
+                            stringResource(R.string.stats_verify_runs),
+                            "${stats.verifyRuns}",
+                            stringResource(R.string.stats_verify_runs_sub),
+                            Modifier.weight(1f),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi(
+                            stringResource(R.string.stats_repaired),
+                            "${stats.repaired}",
+                            stringResource(R.string.stats_rule_unit),
+                            Modifier.weight(1f),
+                        )
+                        Kpi(
+                            stringResource(R.string.stats_failed),
+                            "${stats.failed}",
+                            stringResource(R.string.stats_rule_unit),
+                            Modifier.weight(1f),
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Kpi(
+                            stringResource(R.string.stats_repair_rate),
+                            stats.repairSuccessRate?.let { "$it%" } ?: "—",
+                            stringResource(R.string.stats_rate_sub),
+                            Modifier.weight(1f),
+                        )
+                        Kpi(
+                            stringResource(R.string.stats_drifted),
+                            "${stats.drifted}",
+                            stringResource(R.string.stats_rule_unit),
+                            Modifier.weight(1f),
+                        )
                     }
 
-                    SectionTitle("最近 7 天")
+                    SectionTitle(stringResource(R.string.stats_last_7_days))
                     WeekChart(stats.recentDays)
 
-                    SectionTitle("规则状态")
+                    SectionTitle(stringResource(R.string.stats_rule_status))
                     RuleDistribution(state)
 
-                    SectionTitle("其他")
-                    InfoRow("最近校验", RelativeTime.text(state.verifiedAt))
-                    InfoRow("首次记录", stats.firstEventAt?.let(::formatDate) ?: "暂无")
+                    SectionTitle(stringResource(R.string.stats_other))
+                    InfoRow(stringResource(R.string.stats_last_check), relativeTimeText(state.verifiedAt))
+                    InfoRow(
+                        stringResource(R.string.stats_first_record),
+                        stats.firstEventAt?.let(::formatDate) ?: stringResource(R.string.stats_none),
+                    )
                     Text(
-                        "统计基于事件日志聚合；清空日志不会重置这里已归档的天数，重置统计会同时清空日志。",
+                        stringResource(R.string.stats_footnote),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = { confirmReset = true }) {
-                        Text("重置统计与日志", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.stats_reset), color = MaterialTheme.colorScheme.error)
                     }
                     Spacer(Modifier.height(24.dp))
                 }
@@ -153,16 +193,16 @@ fun StatsScreen(
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text("重置统计？") },
-            text = { Text("将清空累计统计与全部运行日志，规则本身不受影响。") },
+            title = { Text(stringResource(R.string.stats_reset_title)) },
+            text = { Text(stringResource(R.string.stats_reset_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmReset = false
                     onReset()
-                }) { Text("重置") }
+                }) { Text(stringResource(R.string.stats_reset_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text("取消") }
+                TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }
@@ -205,7 +245,7 @@ private fun WeekChart(days: List<DayStats>) {
     Column {
         if (!hasData) {
             Text(
-                "最近 7 天没有记录",
+                stringResource(R.string.stats_no_records),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -248,12 +288,12 @@ private fun WeekChart(days: List<DayStats>) {
             }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Legend(goodColor, "运行正常")
-                Legend(badColor, "当天有失败 / 漂移")
+                Legend(goodColor, stringResource(R.string.stats_legend_ok))
+                Legend(badColor, stringResource(R.string.stats_legend_bad))
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                "柱高为当日应用、校验、修复的轮次",
+                stringResource(R.string.stats_chart_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -303,12 +343,12 @@ private fun RuleDistribution(state: LatchViewModel.UiState) {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        InfoRow("规则总数", "$total")
-        InfoRow("已生效", "$applied")
-        InfoRow("漂移", "$drifted")
-        InfoRow("失败", "$failed")
-        InfoRow("待应用", "$pending")
-        InfoRow("未启用", "$disabled")
+        InfoRow(stringResource(R.string.stats_rules_total), "$total")
+        InfoRow(stringResource(R.string.stats_applied), "$applied")
+        InfoRow(stringResource(R.string.stats_drifted_count), "$drifted")
+        InfoRow(stringResource(R.string.stats_failed_count), "$failed")
+        InfoRow(stringResource(R.string.stats_pending), "$pending")
+        InfoRow(stringResource(R.string.stats_disabled), "$disabled")
     }
 }
 

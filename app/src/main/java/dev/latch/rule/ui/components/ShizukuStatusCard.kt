@@ -15,7 +15,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.privilege.PrivilegeStatus
 import dev.latch.rule.ui.theme.LatchDimens
@@ -42,9 +44,9 @@ fun ShizukuStatusCard(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = when (status) {
-                        PrivilegeStatus.READY -> "已连接 · 可以应用规则"
-                        PrivilegeStatus.NOT_GRANTED -> "已运行 · 需要授权本应用"
-                        PrivilegeStatus.UNAVAILABLE -> "未运行 · 请在手机上启动 Shizuku"
+                        PrivilegeStatus.READY -> stringResource(R.string.shizuku_ready)
+                        PrivilegeStatus.NOT_GRANTED -> stringResource(R.string.shizuku_not_granted)
+                        PrivilegeStatus.UNAVAILABLE -> stringResource(R.string.shizuku_unavailable)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -53,10 +55,10 @@ fun ShizukuStatusCard(
             Spacer(Modifier.width(8.dp))
             when (status) {
                 PrivilegeStatus.READY -> StatusChip(RuleState.APPLIED)
-                PrivilegeStatus.NOT_GRANTED -> Button(onClick = onRequestPermission) { Text("授权") }
+                PrivilegeStatus.NOT_GRANTED -> Button(onClick = onRequestPermission) { Text(stringResource(R.string.shizuku_grant)) }
                 PrivilegeStatus.UNAVAILABLE -> Row {
-                    TextButton(onClick = onOpenShizuku) { Text("打开 Shizuku") }
-                    TextButton(onClick = onRefresh) { Text("重新检测") }
+                    TextButton(onClick = onOpenShizuku) { Text(stringResource(R.string.shizuku_open)) }
+                    TextButton(onClick = onRefresh) { Text(stringResource(R.string.shizuku_recheck)) }
                 }
             }
         }

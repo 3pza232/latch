@@ -1,7 +1,6 @@
 package dev.latch.rule.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -34,7 +34,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.ui.LatchViewModel
 import dev.latch.rule.ui.components.EmptyState
 import dev.latch.rule.ui.components.GroupCard
@@ -70,18 +72,26 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (selecting) "已选择 ${selection.size} 个" else "Latch") },
+                title = {
+                    Text(
+                        if (selecting) {
+                            stringResource(R.string.home_selected_count, selection.size)
+                        } else {
+                            stringResource(R.string.app_name)
+                        },
+                    )
+                },
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = { selection = emptySet() }) {
-                            Icon(Icons.Filled.Close, contentDescription = "取消选择")
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.home_clear_selection))
                         }
                     }
                 },
                 actions = {
                     if (selecting) {
                         IconButton(onClick = { confirmDelete = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "删除所选")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.home_delete_selected))
                         }
                     } else {
                         IconButton(onClick = onVerifyAll, enabled = !state.verifyingAll) {
@@ -91,11 +101,11 @@ fun HomeScreen(
                                     strokeWidth = 2.dp,
                                 )
                             } else {
-                                Icon(Icons.Filled.Refresh, contentDescription = "校验全部")
+                                Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.home_verify_all))
                             }
                         }
                         IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Filled.Settings, contentDescription = "设置")
+                            Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.home_settings))
                         }
                     }
                 },
@@ -110,7 +120,7 @@ fun HomeScreen(
                     onClick = { createDialog = true },
                     shape = RoundedCornerShape(18.dp),
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("新建规则组") },
+                    text = { Text(stringResource(R.string.home_new_group)) },
                 )
             }
         },
@@ -131,11 +141,11 @@ fun HomeScreen(
             if (state.groups.isEmpty() && !state.loading) {
                 item {
                     EmptyState(
-                        title = "还没有规则组",
-                        description = "先新建一个规则组，再往里添加规则；也可以直接导入 JSON。",
-                        primaryLabel = "新建规则组",
+                        title = stringResource(R.string.home_empty_title),
+                        description = stringResource(R.string.home_empty_description),
+                        primaryLabel = stringResource(R.string.home_new_group),
                         onPrimary = { createDialog = true },
-                        secondaryLabel = "导入 JSON",
+                        secondaryLabel = stringResource(R.string.home_import),
                         onSecondary = onImportJson,
                     )
                 }
@@ -164,8 +174,8 @@ fun HomeScreen(
 
     if (createDialog) {
         GroupInfoDialog(
-            title = "新建规则组",
-            confirmLabel = "创建",
+            title = stringResource(R.string.home_new_group),
+            confirmLabel = stringResource(R.string.common_create),
             onConfirm = { name, description ->
                 onNewGroup(name, description)
                 createDialog = false
@@ -178,17 +188,17 @@ fun HomeScreen(
         val ruleCount = state.groups.filter { it.id in selection }.sumOf { it.rules.size }
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("删除 ${selection.size} 个规则组？") },
-            text = { Text("将同时删除其中的 $ruleCount 条规则，系统上已生效的设置不会被自动还原。") },
+            title = { Text(stringResource(R.string.home_delete_title, selection.size)) },
+            text = { Text(stringResource(R.string.home_delete_body, ruleCount)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     onDeleteGroups(selection)
                     selection = emptySet()
-                }) { Text("删除") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("取消") }
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) }
             },
         )
     }

@@ -10,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.ui.LatchViewModel
 
@@ -22,9 +24,9 @@ fun GroupStatusSummary(
     modifier: Modifier = Modifier,
 ) {
     val label = when {
-        summary.applied > 0 && summary.drifted > 0 -> "部分漂移"
-        summary.applied > 0 && summary.failed > 0 -> "部分失败"
-        summary.applied > 0 && summary.pending > 0 -> "部分待应用"
+        summary.applied > 0 && summary.drifted > 0 -> stringResource(R.string.summary_partial_drifted)
+        summary.applied > 0 && summary.failed > 0 -> stringResource(R.string.summary_partial_failed)
+        summary.applied > 0 && summary.pending > 0 -> stringResource(R.string.summary_partial_pending)
         else -> statusLabel(summary.state)
     }
     Column(modifier = modifier) {
@@ -32,14 +34,14 @@ fun GroupStatusSummary(
             StatusChip(state = summary.state, label = label)
             Spacer(Modifier.width(8.dp))
             Text(
-                "${summary.applied}/${summary.total} 生效",
+                stringResource(R.string.summary_applied, summary.applied, summary.total),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (summary.drifted > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "${summary.drifted} 漂移",
+                    stringResource(R.string.summary_drifted, summary.drifted),
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor(RuleState.DRIFTED),
                 )
@@ -47,7 +49,7 @@ fun GroupStatusSummary(
             if (summary.failed > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "${summary.failed} 失败",
+                    stringResource(R.string.summary_failed, summary.failed),
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor(RuleState.FAILED),
                 )
@@ -55,7 +57,7 @@ fun GroupStatusSummary(
             if (summary.suppressed > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "${summary.suppressed} 被覆盖",
+                    stringResource(R.string.summary_suppressed, summary.suppressed),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -63,7 +65,7 @@ fun GroupStatusSummary(
             if (summary.blocked > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "${summary.blocked} 受保护",
+                    stringResource(R.string.summary_blocked, summary.blocked),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -71,7 +73,7 @@ fun GroupStatusSummary(
             if (summary.disabled > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "${summary.disabled} 停用",
+                    stringResource(R.string.summary_disabled, summary.disabled),
                     style = MaterialTheme.typography.labelSmall,
                     color = statusColor(RuleState.DISABLED),
                 )
@@ -79,7 +81,7 @@ fun GroupStatusSummary(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            RelativeTime.text(verifiedAt),
+            relativeTimeText(verifiedAt),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -21,15 +21,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.gateway.AgentGateway
+import kotlinx.coroutines.launch
 
 /** Stays open until a client connects; closing it stops the local gateway. */
 @Composable
@@ -41,7 +43,8 @@ fun PairingDialog(
     val code = gateway.code.orEmpty()
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
-    val connectionInfo = "地址：$address\n配对码：$code"
+    val connectionInfo = stringResource(R.string.pairing_info, address, code)
+    val clipLabel = stringResource(R.string.pairing_clip_label)
     var copied by remember { mutableStateOf(false) }
 
     LaunchedEffect(copied) {
@@ -54,17 +57,17 @@ fun PairingDialog(
     AlertDialog(
         onDismissRequest = onClose,
         shape = MaterialTheme.shapes.large,
-        title = { Text("局域网连接") },
+        title = { Text(stringResource(R.string.pairing_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 InfoBlock(
-                    label = "地址",
+                    label = stringResource(R.string.pairing_address),
                     value = address,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(Modifier.height(16.dp))
                 InfoBlock(
-                    label = "配对码",
+                    label = stringResource(R.string.pairing_code),
                     value = code.chunked(3).joinToString(" "),
                     style = MaterialTheme.typography.headlineMedium,
                 )
@@ -73,19 +76,21 @@ fun PairingDialog(
                     onClick = {
                         scope.launch {
                             clipboard.setClipEntry(
-                                ClipEntry(ClipData.newPlainText("Latch 连接信息", connectionInfo)),
+                                ClipEntry(
+                                    ClipData.newPlainText(clipLabel, connectionInfo),
+                                ),
                             )
                         }
                         copied = true
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(if (copied) "已复制" else "复制连接信息")
+                    Text(stringResource(if (copied) R.string.pairing_copied else R.string.pairing_copy))
                 }
                 Spacer(Modifier.height(16.dp))
                 if (gateway.lockedUntil > System.currentTimeMillis()) {
                     Text(
-                        "尝试次数过多，请稍后重试",
+                        stringResource(R.string.pairing_locked),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -94,7 +99,7 @@ fun PairingDialog(
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "等待连接…",
+                            stringResource(R.string.pairing_waiting),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -104,7 +109,7 @@ fun PairingDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onClose) { Text("关闭") }
+            TextButton(onClick = onClose) { Text(stringResource(R.string.common_close)) }
         },
     )
 }

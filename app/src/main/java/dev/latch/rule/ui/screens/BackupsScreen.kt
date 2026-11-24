@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -44,8 +45,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.latch.rule.R
 import dev.latch.rule.core.backup.BackupMeta
 import dev.latch.rule.core.backup.BackupReason
 import dev.latch.rule.core.backup.GroupChangeKind
@@ -64,11 +67,11 @@ private const val HOUR = 60 * MINUTE
 private const val DAY = 24 * HOUR
 
 private val RESTORE_POINTS = listOf(
-    "1 小时前" to HOUR,
-    "1 天前" to DAY,
-    "3 天前" to 3 * DAY,
-    "7 天前" to 7 * DAY,
-    "30 天前" to 30 * DAY,
+    R.string.backups_ago_hour to HOUR,
+    R.string.backups_ago_day to DAY,
+    R.string.backups_ago_3days to 3 * DAY,
+    R.string.backups_ago_7days to 7 * DAY,
+    R.string.backups_ago_30days to 30 * DAY,
 )
 
 /**
@@ -89,6 +92,7 @@ fun BackupsScreen(
     onPreview: (String, Set<String>?) -> Unit,
     onClearPreview: () -> Unit,
     onRestore: (String, Set<String>?, Boolean) -> Unit,
+    onExport: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var target by remember { mutableStateOf<BackupMeta?>(null) }
@@ -119,18 +123,18 @@ fun BackupsScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("备份与恢复") },
+                title = { Text(stringResource(R.string.backups_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = onRefresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "刷新")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_refresh))
                     }
                     IconButton(onClick = onCreate) {
-                        Icon(Icons.Filled.Add, contentDescription = "立即备份")
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.backups_create))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -150,9 +154,9 @@ fun BackupsScreen(
 
             backups.isEmpty() -> Column(modifier = Modifier.padding(innerPadding)) {
                 EmptyState(
-                    title = "还没有备份",
-                    description = "修改规则后会自动创建恢复点，也可以点右上角立即备份。",
-                    primaryLabel = "立即备份",
+                    title = stringResource(R.string.backups_empty_title),
+                    description = stringResource(R.string.backups_empty_description),
+                    primaryLabel = stringResource(R.string.backups_create),
                     onPrimary = onCreate,
                 )
             }
@@ -166,7 +170,7 @@ fun BackupsScreen(
                 ),
             ) {
                 item {
-                    SectionTitle("恢复点")
+                    SectionTitle(stringResource(R.string.backups_restore_points))
                     Spacer(Modifier.height(8.dp))
                 }
                 items(RESTORE_POINTS, key = { it.first }) { (label, offset) ->
@@ -178,11 +182,15 @@ fun BackupsScreen(
                 }
                 item {
                     Spacer(Modifier.height(20.dp))
-                    SectionTitle("全部快照")
+                    SectionTitle(stringResource(R.string.backups_all))
                     Spacer(Modifier.height(8.dp))
                 }
                 items(backups, key = { it.id }) { meta ->
-                    SnapshotRow(meta) { openRestore(meta) }
+                    SnapshotRow(
+                        meta = meta,
+                        onClick = { openRestore(meta) },
+                        onExport = { onExport(meta.id) },
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -235,7 +243,7 @@ private fun RestoreDialog(
     AlertDialog(
         onDismissRequest = { if (!restoring) onDismiss() },
         shape = MaterialTheme.shapes.large,
-        title = { Text("恢复备份") },
+        title = { Text(stringResource(R.string.backups_dialog_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -243,7 +251,7 @@ private fun RestoreDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 Text(
-                    "恢复到 ${formatTime(meta.createdAt)} 的状态",
+                    stringResource(R.string.backups_dialog_target, formatTime(meta.createdAt)),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -251,12 +259,12 @@ private fun RestoreDialog(
                     FilterChip(
                         selected = scopeAll,
                         onClick = { onScopeChange(true) },
-                        label = { Text("全部规则") },
+                        label = { Text(stringResource(R.string.backups_scope_all)) },
                     )
                     FilterChip(
                         selected = !scopeAll,
                         onClick = { onScopeChange(false) },
-                        label = { Text("选择规则组") },
+                        label = { Text(stringResource(R.string.backups_scope_groups)) },
                     )
                 }
 
@@ -278,7 +286,7 @@ private fun RestoreDialog(
                     }
                     if (groups.isEmpty()) {
                         Text(
-                            "当前没有规则组",
+                            stringResource(R.string.backups_no_groups),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -287,7 +295,7 @@ private fun RestoreDialog(
 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    preview?.let(::describePlan) ?: "正在计算改动…",
+                    preview?.let { describePlan(it) } ?: stringResource(R.string.backups_calculating),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -297,14 +305,19 @@ private fun RestoreDialog(
                         Spacer(Modifier.height(6.dp))
                         changed.take(6).forEach { change ->
                             Text(
-                                "· ${change.groupName}：${changeLabel(change.kind)}（${change.ruleCount} 条）",
+                                stringResource(
+                                    R.string.backups_change_item,
+                                    change.groupName,
+                                    stringResource(changeLabel(change.kind)),
+                                    change.ruleCount,
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         if (changed.size > 6) {
                             Text(
-                                "… 还有 ${changed.size - 6} 个组",
+                                stringResource(R.string.backups_more_groups, changed.size - 6),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -315,9 +328,9 @@ private fun RestoreDialog(
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("恢复后立即应用", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.backups_apply_now), style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "默认只恢复配置，不改变系统状态",
+                            stringResource(R.string.backups_apply_hint),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -338,18 +351,18 @@ private fun RestoreDialog(
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                 }
-                Text("恢复")
+                Text(stringResource(R.string.backups_restore))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !restoring) { Text("取消") }
+            TextButton(onClick = onDismiss, enabled = !restoring) { Text(stringResource(R.string.common_cancel)) }
         },
     )
 }
 
 @Composable
 private fun RestorePointRow(
-    label: String,
+    label: Int,
     meta: BackupMeta?,
     onClick: (BackupMeta) -> Unit,
 ) {
@@ -360,45 +373,57 @@ private fun RestorePointRow(
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(96.dp))
+        Text(stringResource(label), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(96.dp))
         Text(
-            meta?.let { "${formatTime(it.createdAt)} · ${it.groups} 组 / ${it.rules} 条" }
-                ?: "无可用恢复点",
+            meta?.let {
+                stringResource(
+                    R.string.backups_point_summary,
+                    formatTime(it.createdAt),
+                    it.groups,
+                    it.rules,
+                )
+            } ?: stringResource(R.string.backups_no_point),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
         if (meta != null) {
-            Text("恢复", style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.backups_restore), style = MaterialTheme.typography.labelMedium)
         }
     }
 }
 
 @Composable
-private fun SnapshotRow(meta: BackupMeta, onClick: () -> Unit) {
-    Column(
+private fun SnapshotRow(meta: BackupMeta, onClick: () -> Unit, onExport: () -> Unit) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row {
+        Column(modifier = Modifier.weight(1f)) {
+            Row {
+                Text(
+                    formatTime(meta.createdAt),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stringResource(reasonLabel(meta.reason)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
-                formatTime(meta.createdAt),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                reasonLabel(meta.reason),
+                stringResource(R.string.backups_snapshot_summary, meta.groups, meta.rules),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Text(
-            "${meta.groups} 组 / ${meta.rules} 条",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        IconButton(onClick = onExport) {
+            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.backups_export))
+        }
     }
 }
 
@@ -417,28 +442,33 @@ private fun nearestBefore(backups: List<BackupMeta>, offset: Long): BackupMeta? 
     return backups.firstOrNull { it.createdAt <= cutoff }
 }
 
+@Composable
 private fun describePlan(plan: RestorePlan): String {
     val changed = plan.added + plan.replaced + plan.removed
-    if (changed == 0) return "与当前规则一致，没有需要恢复的改动"
-    return buildString {
-        append("将更改 $changed 个组：新增 ${plan.added}、替换 ${plan.replaced}")
-        if (plan.removed > 0) append("、删除 ${plan.removed}")
-        append("；恢复后共 ${plan.groups.size} 组 / ${plan.ruleCount} 条")
-    }
+    if (changed == 0) return stringResource(R.string.backups_no_changes)
+    return stringResource(
+        R.string.backups_change_summary,
+        changed,
+        plan.added,
+        plan.replaced,
+        plan.removed,
+        plan.groups.size,
+        plan.ruleCount,
+    )
 }
 
-private fun changeLabel(kind: GroupChangeKind): String = when (kind) {
-    GroupChangeKind.ADDED -> "新增"
-    GroupChangeKind.REPLACED -> "替换"
-    GroupChangeKind.REMOVED -> "删除"
-    GroupChangeKind.UNCHANGED -> "不变"
+private fun changeLabel(kind: GroupChangeKind): Int = when (kind) {
+    GroupChangeKind.ADDED -> R.string.change_added
+    GroupChangeKind.REPLACED -> R.string.change_replaced
+    GroupChangeKind.REMOVED -> R.string.change_removed
+    GroupChangeKind.UNCHANGED -> R.string.change_unchanged
 }
 
-private fun reasonLabel(reason: BackupReason): String = when (reason) {
-    BackupReason.MANUAL -> "手动"
-    BackupReason.AUTO_CHANGE -> "自动"
-    BackupReason.PRE_RESTORE -> "恢复前"
-    BackupReason.PRE_MIGRATION -> "迁移前"
+private fun reasonLabel(reason: BackupReason): Int = when (reason) {
+    BackupReason.MANUAL -> R.string.backups_reason_manual
+    BackupReason.AUTO_CHANGE -> R.string.backups_reason_auto
+    BackupReason.PRE_RESTORE -> R.string.backups_reason_pre_restore
+    BackupReason.PRE_MIGRATION -> R.string.backups_reason_pre_migration
 }
 
 private fun formatTime(timestamp: Long): String =
