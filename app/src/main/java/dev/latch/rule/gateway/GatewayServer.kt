@@ -9,6 +9,7 @@ import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
+import dev.latch.rule.domain.StatsService
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.privilege.PrivilegeBroker
@@ -27,6 +28,7 @@ class GatewayServer(
     private val eventLog: EventLog,
     private val backupService: BackupService,
     private val restoreService: RestoreService,
+    private val statsService: StatsService,
 ) : NanoHTTPD(EPHEMERAL_PORT) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -41,6 +43,7 @@ class GatewayServer(
                 (uri == "/api" || uri == "/api/docs") && method == Method.GET -> apiDocs()
                 uri == "/api/state" && method == Method.GET -> state()
                 uri == "/api/logs" && method == Method.GET -> logs(session)
+                uri == "/api/stats" && method == Method.GET -> stats()
                 uri == "/api/backups" && method == Method.GET -> backups()
                 uri == "/api/backups" && method == Method.POST -> createBackup()
                 uri.startsWith("/api/backups/") && uri.endsWith("/restore") &&
@@ -101,6 +104,7 @@ class GatewayServer(
                 JSONArray()
                     .put(endpoint("GET", "/api/state", null, "Gateway/Shizuku status, group counts and summary"))
                     .put(endpoint("GET", "/api/logs?limit=200", null, "Recent sanitized events (no commands or raw output)"))
+                    .put(endpoint("GET", "/api/stats", null, "Run counters, active days and the last seven days"))
                     .put(endpoint("GET", "/api/backups", null, "List rule snapshots, newest first"))
                     .put(endpoint("POST", "/api/backups", null, "Create a manual snapshot now"))
                     .put(
@@ -246,6 +250,42 @@ class GatewayServer(
         .put("message", event.message)
         .put("detail", event.detail)
         .put("durationMs", event.durationMs)
+
+    private fun stats(): Response {
+        val snapshot = runBlocking { statsService.refresh() }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("totalDays", snapshot.totalDays)
+                .put("activeDays", snapshot.activeDays)
+                .put("streakDays", snapshot.streakDays)
+                .put("applyRuns", snapshot.applyRuns)
+                .put("verifyRuns", snapshot.verifyRuns)
+                .put("repairRuns", snapshot.repairRuns)
+                .put("applied", snapshot.applied)
+                .put("repaired", snapshot.repaired)
+                .put("failed", snapshot.failed)
+                .put("drifted", snapshot.drifted)
+                .put("repairSuccessRate", snapshot.repairSuccessRate ?: JSONObject.NULL)
+                .put(
+                    "days",
+                    JSONArray().apply {
+                        snapshot.recentDays.forEach { day ->
+                            put(
+                                JSONObject()
+                                    .put("date", day.date)
+                                    .put("runs", day.runs)
+                                    .put("applied", day.applied)
+                                    .put("repaired", day.repaired)
+                                    .put("failed", day.failed)
+                                    .put("drifted", day.drifted),
+                            )
+                        }
+                    },
+                ),
+        )
+    }
 
     private fun backups(): Response {
         val metas = runBlocking { backupService.list() }

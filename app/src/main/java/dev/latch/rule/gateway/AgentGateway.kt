@@ -11,6 +11,7 @@ import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
+import dev.latch.rule.domain.StatsService
 import dev.latch.rule.privilege.PrivilegeBroker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,7 @@ class AgentGateway(
     private val eventLog: EventLog,
     private val backupService: BackupService,
     private val restoreService: RestoreService,
+    private val statsService: StatsService,
 ) {
 
     enum class Status { IDLE, WAITING, CONNECTED, ERROR }
@@ -75,6 +77,7 @@ class AgentGateway(
             eventLog,
             backupService,
             restoreService,
+            statsService,
         )
         val started = runCatching { created.start(2_000, false) }
         if (started.isFailure) {
