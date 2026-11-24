@@ -14,6 +14,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -33,6 +38,14 @@ fun PairingDialog(
     val code = gateway.code.orEmpty()
     val clipboard = LocalClipboardManager.current
     val connectionInfo = "地址：$address\n配对码：$code"
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(1_500)
+            copied = false
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onClose,
@@ -53,10 +66,13 @@ fun PairingDialog(
                 )
                 Spacer(Modifier.height(20.dp))
                 Button(
-                    onClick = { clipboard.setText(AnnotatedString(connectionInfo)) },
+                    onClick = {
+                        clipboard.setText(AnnotatedString(connectionInfo))
+                        copied = true
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("复制连接信息")
+                    Text(if (copied) "已复制" else "复制连接信息")
                 }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
