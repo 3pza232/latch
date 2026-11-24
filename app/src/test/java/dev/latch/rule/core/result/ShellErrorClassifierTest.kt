@@ -33,6 +33,14 @@ class ShellErrorClassifierTest {
     }
 
     @Test
+    fun `a timed out command maps to TIMEOUT`() {
+        assertEquals(
+            LatchErrorCode.TIMEOUT,
+            classify(-1, stderr = "命令超时（15 秒）").code,
+        )
+    }
+
+    @Test
     fun `security exceptions mean the shell was denied`() {
         assertEquals(
             LatchErrorCode.SHELL_DENIED,
