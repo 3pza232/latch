@@ -99,7 +99,9 @@ function Get-Expected($rule) {
     $cap = $rule.capability
     switch ($cap.type) {
         'appOp' { return $cap.mode }
-        'revokePermission' { return 'granted=false' }
+        'permissionState' { return $cap.mode }
+        'revokePermission' { return 'deny' }
+        'grantPermission' { return 'allow' }
         'forceStop' { return 'stopped' }
         'setEnabled' { return $(if ($cap.enabled) { 'enabled' } else { 'disabled' }) }
         default { return 'unknown' }
@@ -123,12 +125,21 @@ function Get-Actual($rule) {
             }
             return 'unknown'
         }
-        'revokePermission' {
+        'permissionState' {
             $perm = $cap.permission
-            $out = Invoke-Shell "dumpsys package $pkg | grep -F '${perm}: granted' || true"
-            $match = [regex]::Match($out, 'granted=(true|false)')
-            return $(if ($match.Success) { "granted=$($match.Groups[1].Value)" } else { 'unknown' })
+            $check = (Invoke-Shell "dumpsys package check-permission $perm $pkg 0").Trim()
+            if ($check -eq '0') { $granted = $true }
+            elseif ($check -eq '-1') { $granted = $false }
+            else {
+                $out = Invoke-Shell "dumpsys package $pkg | grep -F '${perm}: granted' || true"
+                $match = [regex]::Match($out, 'granted=(true|false)')
+                if (-not $match.Success) { return 'unknown' }
+                $granted = $match.Groups[1].Value -eq 'true'
+            }
+            if ($cap.mode -eq 'allow') { return $(if ($granted) { 'allow' } else { 'denied' }) }
+            return $(if ($granted) { 'granted' } else { 'deny' })
         }
+        'revokePermission' { return 'granted=false' }
         'forceStop' {
             $out = Invoke-Shell "ps -A -o NAME | grep -F '$pkg' || true"
             return $(if ([string]::IsNullOrWhiteSpace($out)) { 'stopped' } else { 'running' })
@@ -150,7 +161,12 @@ function Get-ApplyCommand($rule) {
             $uidFlag = if ($cap.scope -eq 'uid') { ' --uid' } else { '' }
             return "cmd appops set$uidFlag $pkg $($cap.op) $($cap.mode)"
         }
+        'permissionState' {
+            if ($cap.mode -eq 'allow') { return "pm grant --user 0 $pkg $($cap.permission)" }
+            return "pm revoke --user 0 $pkg $($cap.permission)"
+        }
         'revokePermission' { return "pm revoke --user 0 $pkg $($cap.permission)" }
+        'grantPermission' { return "pm grant --user 0 $pkg $($cap.permission)" }
         'forceStop' { return "am force-stop $pkg" }
         'setEnabled' {
             return $(if ($cap.enabled) { "pm enable $pkg" } else { "pm disable-user --user 0 $pkg" })
