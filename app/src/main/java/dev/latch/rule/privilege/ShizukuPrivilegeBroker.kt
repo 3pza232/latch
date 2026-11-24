@@ -1,6 +1,7 @@
 package dev.latch.rule.privilege
 
 import android.content.pm.PackageManager
+import dev.latch.rule.core.result.ShellResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope

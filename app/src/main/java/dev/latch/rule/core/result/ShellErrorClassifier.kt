@@ -1,7 +1,5 @@
 package dev.latch.rule.core.result
 
-import dev.latch.rule.privilege.ShellResult
-
 /**
  * Maps a failed shell invocation to a stable error code.
  *

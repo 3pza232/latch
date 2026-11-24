@@ -5,9 +5,9 @@ import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.result.LatchErrorCode
+import dev.latch.rule.core.result.ShellResult
 import dev.latch.rule.privilege.PrivilegeBroker
 import dev.latch.rule.privilege.PrivilegeStatus
-import dev.latch.rule.privilege.ShellResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test

@@ -10,16 +10,15 @@ import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleOverride
+import dev.latch.rule.core.result.ShellResult
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.StoredResult
 import dev.latch.rule.data.VerificationSnapshot
 import dev.latch.rule.engine.RuleEngine
-import dev.latch.rule.engine.VerifyService
 import dev.latch.rule.privilege.PrivilegeBroker
 import dev.latch.rule.privilege.PrivilegeStatus
-import dev.latch.rule.privilege.ShellResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

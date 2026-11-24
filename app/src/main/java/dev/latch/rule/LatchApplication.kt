@@ -24,7 +24,7 @@ import dev.latch.rule.domain.RestoreService
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.domain.StatsService
 import dev.latch.rule.engine.RuleEngine
-import dev.latch.rule.engine.VerifyService
+import dev.latch.rule.domain.VerifyService
 import dev.latch.rule.gateway.AgentGateway
 import dev.latch.rule.notify.DriftNotifier
 import dev.latch.rule.privilege.PrivilegeBroker

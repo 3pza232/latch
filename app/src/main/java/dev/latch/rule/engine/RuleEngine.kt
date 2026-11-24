@@ -4,8 +4,8 @@ import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.result.LatchError
 import dev.latch.rule.core.result.LatchErrorCode
+import dev.latch.rule.core.result.ShellResult
 import dev.latch.rule.privilege.PrivilegeBroker
-import dev.latch.rule.privilege.ShellResult
 
 data class RuleResult(
     val ruleId: String,

@@ -1,7 +1,5 @@
 package dev.latch.rule.core.result
 
-import dev.latch.rule.privilege.ShellResult
-
 /** Stable, user-facing failure taxonomy. */
 enum class LatchErrorCode {
     NO_PRIVILEGE,

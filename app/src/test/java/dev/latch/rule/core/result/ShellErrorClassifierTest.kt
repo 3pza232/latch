@@ -1,6 +1,5 @@
 package dev.latch.rule.core.result
 
-import dev.latch.rule.privilege.ShellResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

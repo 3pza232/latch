@@ -1,4 +1,4 @@
-package dev.latch.rule.engine
+package dev.latch.rule.domain
 
 import dev.latch.rule.core.log.EventAction
 import dev.latch.rule.core.log.EventLog
@@ -13,6 +13,12 @@ import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
 import dev.latch.rule.data.StoredResult
 import dev.latch.rule.data.VerificationSnapshot
+import dev.latch.rule.engine.RuleEngine
+import dev.latch.rule.engine.RuleResult
+import dev.latch.rule.engine.batchEvent
+import dev.latch.rule.engine.needsDetail
+import dev.latch.rule.engine.toEvent
+import dev.latch.rule.engine.toStored
 
 /**
  * Runs verification over the persisted rule document and stores the outcome.
@@ -110,12 +116,3 @@ class VerifyService(
         }
     }
 }
-
-fun RuleResult.toStored(checkedAt: Long): StoredResult = StoredResult(
-    ruleId = ruleId,
-    state = state,
-    expected = expected,
-    actual = actual,
-    message = error?.message ?: message,
-    checkedAt = checkedAt,
-)

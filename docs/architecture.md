@@ -19,8 +19,9 @@ receiver       开机自检
 notify         漂移通知
 ```
 
-依赖方向单向：`ui → domain → engine → privilege`。
-UI 不拼接命令，engine 不直接持有特权，只有 `CapabilityCommands` 生成命令。
+依赖方向单向：`ui → domain → engine → privilege`，`domain → data` 只通过存储抽象。
+UI 不拼接命令，engine 不直接持有特权，只有 `CapabilityCommands` 生成命令；
+批量校验、备份与统计的编排都在 domain，engine 只负责单条命令与回读。
 
 ## 核心组件
 

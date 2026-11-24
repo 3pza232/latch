@@ -67,8 +67,8 @@ latch.keyPassword=******
 app/src/main/java/dev/latch/rule/
 ├─ core/          领域模型与错误分类
 ├─ privilege/     特权通道
-├─ engine/        命令、解析、应用、校验
-├─ domain/        规则状态中枢
+├─ engine/        命令生成与解析、单条应用与回读
+├─ domain/        规则状态中枢、批量校验、备份恢复、统计
 ├─ data/          持久化与编解码
 ├─ gateway/       局域网网关
 ├─ ui/            Compose 界面

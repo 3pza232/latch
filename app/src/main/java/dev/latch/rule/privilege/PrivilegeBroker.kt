@@ -1,17 +1,11 @@
 package dev.latch.rule.privilege
 
+import dev.latch.rule.core.result.ShellResult
+
 enum class PrivilegeStatus {
     UNAVAILABLE,
     NOT_GRANTED,
     READY,
-}
-
-data class ShellResult(
-    val exitCode: Int,
-    val stdout: String,
-    val stderr: String,
-) {
-    val ok: Boolean get() = exitCode == 0
 }
 
 /**
