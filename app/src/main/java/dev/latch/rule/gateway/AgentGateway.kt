@@ -7,6 +7,7 @@ import dev.latch.rule.core.log.EventAction
 import dev.latch.rule.core.log.EventLevel
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.EventSource
+import dev.latch.rule.core.gateway.PairingTicket
 import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.privilege.PrivilegeBroker
@@ -36,8 +37,10 @@ class AgentGateway(
         val status: Status = Status.IDLE,
         val code: String? = null,
         val address: String? = null,
-        val port: Int = PORT,
+        val port: Int = 0,
         val clients: Int = 0,
+        /** One string the user can hand to an agent: octet + port + code. */
+        val ticket: String? = null,
         /** Why the gateway could not start; shown instead of an idle panel. */
         val error: String? = null,
     )
@@ -76,14 +79,25 @@ class AgentGateway(
             return false
         }
         server = created
+        val address = localAddress()
+        val port = created.listeningPort
+        val code = currentCode
         _state.value = State(
             status = Status.WAITING,
-            code = currentCode,
-            address = localAddress(),
-            port = PORT,
+            code = code,
+            address = address,
+            port = port,
+            ticket = ticketFor(address, port, code),
         )
-        record(EventLevel.INFO, EventAction.GATEWAY_START, "waiting", detail = "port=$PORT")
+        record(EventLevel.INFO, EventAction.GATEWAY_START, "waiting", detail = "port=$port")
         return true
+    }
+
+    /** Null when the address is not IPv4, in which case the client needs the pieces separately. */
+    private fun ticketFor(address: String?, port: Int, code: String?): String? {
+        if (address == null || code == null) return null
+        val octet = address.substringAfterLast('.').toIntOrNull() ?: return null
+        return runCatching { PairingTicket(octet, port, code).encode() }.getOrNull()
     }
 
     @Synchronized
@@ -154,8 +168,7 @@ class AgentGateway(
             ?.hostAddress
     }
 
-    companion object {
-        const val PORT = 8765
-        private const val MAX_FAILURES = 5
+    private companion object {
+        const val MAX_FAILURES = 5
     }
 }

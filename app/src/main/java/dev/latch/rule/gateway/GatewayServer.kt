@@ -20,7 +20,7 @@ class GatewayServer(
     private val privilege: PrivilegeBroker,
     private val versionName: String,
     private val eventLog: EventLog,
-) : NanoHTTPD(AgentGateway.PORT) {
+) : NanoHTTPD(EPHEMERAL_PORT) {
 
     override fun serve(session: IHTTPSession): Response {
         val uri = session.uri
@@ -377,6 +377,8 @@ class GatewayServer(
         newFixedLengthResponse(status, "application/json; charset=utf-8", payload.toString())
 
     private companion object {
+        /** Let the OS pick a free port; a fixed port is easier to scan. */
+        const val EPHEMERAL_PORT = 0
         const val MAX_BODY_BYTES = 2 * 1024 * 1024
 
         val RULE_SHAPE: JSONObject = JSONObject()
