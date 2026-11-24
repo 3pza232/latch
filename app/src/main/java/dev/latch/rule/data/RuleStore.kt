@@ -1,13 +1,13 @@
 package dev.latch.rule.data
 
 import android.content.Context
-import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleDocument
 import java.io.File
 
 /** Outcome of reading the rule document, including the cases that must not be treated as "no rules". */
 sealed interface RuleLoadResult {
 
-    data class Success(val groups: List<RuleGroup>) : RuleLoadResult
+    data class Success(val document: RuleDocument) : RuleLoadResult
 
     /** First run, or the document was removed by a deliberate reset. */
     data object Missing : RuleLoadResult
@@ -16,10 +16,10 @@ sealed interface RuleLoadResult {
     data class Corrupt(val message: String, val preservedAs: String?) : RuleLoadResult
 }
 
-/** Persistence boundary for rule groups. */
+/** Persistence boundary for the rule document. */
 interface RuleStore {
     fun load(): RuleLoadResult
-    fun save(groups: List<RuleGroup>)
+    fun save(document: RuleDocument)
 }
 
 /**
@@ -50,11 +50,11 @@ class FileRuleStore(private val directory: File) : RuleStore {
         }
     }
 
-    override fun save(groups: List<RuleGroup>) {
+    override fun save(document: RuleDocument) {
         val target = file
         target.parentFile?.mkdirs()
         val temp = File(target.parentFile, "$FILE_NAME.tmp")
-        temp.writeText(RuleCodec.encode(groups))
+        temp.writeText(RuleCodec.encode(document))
         if (!temp.renameTo(target)) {
             target.writeText(temp.readText())
             temp.delete()

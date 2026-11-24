@@ -159,6 +159,7 @@ fun GroupScreen(
                     onToggle = { onToggleRule(rule.id, it) },
                     onLongClick = { selection = selection.toggle(rule.id) },
                     selected = rule.id in selection,
+                    suppressedBy = state.suppressedBy[rule.id],
                 )
             }
             item { Spacer(Modifier.height(88.dp)) }

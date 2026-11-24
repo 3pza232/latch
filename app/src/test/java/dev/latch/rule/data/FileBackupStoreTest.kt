@@ -6,6 +6,7 @@ import dev.latch.rule.core.backup.BackupSnapshot
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -75,6 +76,6 @@ class FileBackupStoreTest {
             rules = 1,
             docHash = "hash-$id",
         ),
-        groups = listOf(group),
+        document = RuleDocument(groups = listOf(group)),
     )
 }

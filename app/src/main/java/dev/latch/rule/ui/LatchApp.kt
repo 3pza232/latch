@@ -6,9 +6,19 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.latch.rule.data.InstalledApp
 import dev.latch.rule.ui.screens.BackupsScreen
@@ -94,6 +105,12 @@ fun LatchApp(
         if (statsOpen) viewModel.loadStats()
     }
 
+    // Closing only after a save completes keeps the editor open while a conflict
+    // is being resolved.
+    LaunchedEffect(state.savedRuleToken) {
+        if (state.savedRuleToken > 0L) editorOpen = false
+    }
+
     BackHandler(enabled = editorOpen) { editorOpen = false }
     BackHandler(enabled = !editorOpen && logsOpen) { logsOpen = false }
     BackHandler(enabled = !editorOpen && !logsOpen && backupsOpen) { backupsOpen = false }
@@ -116,10 +133,7 @@ fun LatchApp(
             editorOpen && selectedGroup != null -> RuleEditorScreen(
                 apps = apps,
                 initialRule = editingRule,
-                onSave = { rule ->
-                    viewModel.upsertRule(selectedGroup.id, rule)
-                    editorOpen = false
-                },
+                onSave = { rule -> viewModel.upsertRule(selectedGroup.id, rule) },
                 onDelete = editingRule?.let { rule ->
                     { ruleId ->
                         viewModel.deleteRule(ruleId)
@@ -227,4 +241,73 @@ fun LatchApp(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
+
+    state.pendingConflict?.let { pending ->
+        ConflictDialog(
+            pending = pending,
+            onResolve = viewModel::resolveConflict,
+            onDismiss = viewModel::cancelConflict,
+        )
+    }
+}
+
+@Composable
+private fun ConflictDialog(
+    pending: LatchViewModel.PendingConflict,
+    onResolve: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var overwrite by remember(pending.rule.id) { mutableStateOf(true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("规则冲突") },
+        text = {
+            Column {
+                Text("新规则与以下现有规则声明了不同的值：")
+                Spacer(Modifier.height(8.dp))
+                pending.conflicts.take(6).forEach { conflict ->
+                    Text(
+                        "· ${conflict.existingRuleName} · ${conflict.summary}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (pending.conflicts.size > 6) {
+                    Text(
+                        "… 还有 ${pending.conflicts.size - 6} 条",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = overwrite,
+                        onClick = { overwrite = true },
+                        label = { Text("新规则覆盖") },
+                    )
+                    FilterChip(
+                        selected = !overwrite,
+                        onClick = { overwrite = false },
+                        label = { Text("保留现有") },
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    if (overwrite) {
+                        "保存后，现有规则显示为被新规则覆盖。"
+                    } else {
+                        "保存后，新规则显示为被现有规则覆盖，暂不生效。"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onResolve(overwrite) }) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }

@@ -15,7 +15,9 @@ import dev.latch.rule.core.backup.RestoreScope
 import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.core.rules.RuleConflict
 import dev.latch.rule.core.stats.StatsSnapshot
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.RuleCodec
@@ -42,6 +44,14 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val failed: Int,
         val pending: Int,
         val disabled: Int,
+        val suppressed: Int = 0,
+    )
+
+    /** A save waiting for the user to choose how to resolve a conflict. */
+    data class PendingConflict(
+        val groupId: String,
+        val rule: Rule,
+        val conflicts: List<RuleConflict>,
     )
 
     data class UiState(
@@ -64,6 +74,11 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         val restoring: Boolean = false,
         val stats: StatsSnapshot? = null,
         val statsLoading: Boolean = false,
+        /** rule id -> name of the rule overriding it. */
+        val suppressedBy: Map<String, String> = emptyMap(),
+        val pendingConflict: PendingConflict? = null,
+        /** Changes when a rule save completes, so the editor can close. */
+        val savedRuleToken: Long = 0L,
     ) {
         fun resultOf(ruleId: String): StoredResult? = results[ruleId]
 
@@ -74,16 +89,23 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
 
         fun summary(group: RuleGroup): GroupSummary {
             if (!group.enabled) {
-                return GroupSummary(RuleState.DISABLED, group.rules.size, 0, 0, 0, 0, group.rules.size)
+                return GroupSummary(
+                    RuleState.DISABLED, group.rules.size, 0, 0, 0, 0, group.rules.size,
+                )
             }
             var applied = 0
             var drifted = 0
             var failed = 0
             var pending = 0
             var disabled = 0
+            var suppressed = 0
             group.rules.forEach { rule ->
                 if (!rule.enabled) {
                     disabled++
+                    return@forEach
+                }
+                if (suppressedBy.containsKey(rule.id)) {
+                    suppressed++
                     return@forEach
                 }
                 when (results[rule.id]?.state) {
@@ -98,10 +120,13 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
                 failed > 0 -> RuleState.FAILED
                 drifted > 0 -> RuleState.DRIFTED
                 pending > 0 -> RuleState.PENDING
+                suppressed > 0 -> RuleState.PENDING
                 applied > 0 -> RuleState.APPLIED
                 else -> RuleState.DISABLED
             }
-            return GroupSummary(state, group.rules.size, applied, drifted, failed, pending, disabled)
+            return GroupSummary(
+                state, group.rules.size, applied, drifted, failed, pending, disabled, suppressed,
+            )
         }
     }
 
@@ -127,12 +152,19 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         }
         viewModelScope.launch {
             container.ruleCoordinator.snapshot.collect { snapshot ->
+                val names = snapshot.groups
+                    .asSequence()
+                    .flatMap { it.rules.asSequence() }
+                    .associate { it.id to it.name }
+                val suppressedBy = snapshot.suppressed
+                    .mapValues { (_, winnerId) -> names[winnerId] ?: winnerId }
                 _uiState.update {
                     it.copy(
                         groups = snapshot.groups,
                         results = snapshot.results,
                         verifiedAt = snapshot.verifiedAt,
                         loading = snapshot.loading,
+                        suppressedBy = suppressedBy,
                     )
                 }
             }
@@ -195,12 +227,61 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.ruleCoordinator.deleteGroup(groupId) }
     }
 
+    /**
+     * Saves a rule. When it contradicts existing rules the save is held back and
+     * [UiState.pendingConflict] is set so the user can choose a side.
+     */
     fun upsertRule(groupId: String, rule: Rule) {
         viewModelScope.launch {
-            val result = container.ruleCoordinator.upsertRule(groupId, rule)
-            if (result != null) {
-                _uiState.update { it.copy(message = summarize(rule.name, listOf(result))) }
+            val conflicts = container.ruleCoordinator.conflictsFor(groupId, rule)
+            if (conflicts.isEmpty()) {
+                persistRule(groupId, rule, emptyList(), suppressed = false)
+            } else {
+                _uiState.update {
+                    it.copy(pendingConflict = PendingConflict(groupId, rule, conflicts))
+                }
             }
+        }
+    }
+
+    /** [overwrite] true: the new rule wins; false: the existing rules keep winning. */
+    fun resolveConflict(overwrite: Boolean) {
+        val pending = _uiState.value.pendingConflict ?: return
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val overrides = pending.conflicts.map { conflict ->
+                if (overwrite) {
+                    RuleOverride(conflict.existingRuleId, pending.rule.id, now)
+                } else {
+                    RuleOverride(pending.rule.id, conflict.existingRuleId, now)
+                }
+            }
+            persistRule(pending.groupId, pending.rule, overrides, suppressed = !overwrite)
+        }
+    }
+
+    fun cancelConflict() {
+        _uiState.update { it.copy(pendingConflict = null) }
+    }
+
+    private suspend fun persistRule(
+        groupId: String,
+        rule: Rule,
+        overrides: List<RuleOverride>,
+        suppressed: Boolean,
+    ) {
+        val result = container.ruleCoordinator.upsertRule(groupId, rule, overrides)
+        val message = when {
+            result != null -> summarize(rule.name, listOf(result))
+            suppressed -> "已保存，新规则被现有规则覆盖"
+            else -> null
+        }
+        _uiState.update {
+            it.copy(
+                pendingConflict = null,
+                savedRuleToken = System.currentTimeMillis(),
+                message = message ?: it.message,
+            )
         }
     }
 
@@ -302,18 +383,22 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
     // region import and export
 
     fun importJson(text: String) {
-        val groups = runCatching { RuleCodec.decode(text) }.getOrElse { error ->
+        val document = runCatching { RuleCodec.decode(text) }.getOrElse { error ->
             _uiState.update { it.copy(message = "导入失败：${error.message ?: "JSON 格式错误"}") }
             return
         }
-        if (groups.isEmpty()) {
+        if (document.groups.isEmpty()) {
             _uiState.update { it.copy(message = "文件中没有规则组") }
             return
         }
         viewModelScope.launch {
-            container.ruleCoordinator.importGroups(groups)
-            val ruleCount = groups.sumOf { it.rules.size }
-            _uiState.update { it.copy(message = "已导入 ${groups.size} 个规则组、$ruleCount 条规则") }
+            container.ruleCoordinator.importDocument(document)
+            _uiState.update {
+                it.copy(
+                    message = "已导入 ${document.groups.size} 个规则组、" +
+                        "${document.rules().size} 条规则",
+                )
+            }
         }
     }
 

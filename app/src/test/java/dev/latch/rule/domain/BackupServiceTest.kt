@@ -4,6 +4,7 @@ import dev.latch.rule.core.backup.BackupReason
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.data.FileBackupStore
 import dev.latch.rule.data.RuleLoadResult
@@ -32,7 +33,7 @@ class BackupServiceTest {
     fun setUp() {
         store = FileBackupStore(File(folder.root, "backups"))
         ruleStore = InMemoryRuleStore()
-        ruleStore.save(listOf(group("相机")))
+        ruleStore.save(RuleDocument(groups = listOf(group("相机"))))
         service = BackupService(store, ruleStore, clock = { now })
     }
 
@@ -65,7 +66,7 @@ class BackupServiceTest {
     fun `rapid edits are coalesced but later edits are captured`() = runBlocking {
         service.onDocumentChanged()
         now += 10_000
-        ruleStore.save(listOf(group("通知")))
+        ruleStore.save(RuleDocument(groups = listOf(group("通知"))))
 
         service.onDocumentChanged()
         assertEquals(1, store.list().size)
@@ -98,12 +99,12 @@ class BackupServiceTest {
     )
 
     private class InMemoryRuleStore : RuleStore {
-        private var groups: List<RuleGroup> = emptyList()
+        private var document: RuleDocument = RuleDocument()
 
-        override fun load(): RuleLoadResult = RuleLoadResult.Success(groups)
+        override fun load(): RuleLoadResult = RuleLoadResult.Success(document)
 
-        override fun save(groups: List<RuleGroup>) {
-            this.groups = groups
+        override fun save(document: RuleDocument) {
+            this.document = document
         }
     }
 }

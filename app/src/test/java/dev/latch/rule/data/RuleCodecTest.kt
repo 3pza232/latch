@@ -5,7 +5,9 @@ import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.OpScope
 import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleOverride
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -51,14 +53,35 @@ class RuleCodecTest {
 
     @Test
     fun `encode then decode keeps the rule document intact`() {
-        val decoded = RuleCodec.decode(RuleCodec.encode(listOf(sampleGroup)))
+        val decoded = RuleCodec.decode(RuleCodec.encode(RuleDocument(groups = listOf(sampleGroup))))
 
-        assertEquals(listOf(sampleGroup), decoded)
+        assertEquals(listOf(sampleGroup), decoded.groups)
+    }
+
+    @Test
+    fun `overrides and revision survive a round trip`() {
+        val document = RuleDocument(
+            groups = listOf(sampleGroup),
+            overrides = listOf(RuleOverride("rule-camera", "rule-permission", 123L)),
+            revision = 7L,
+        )
+
+        assertEquals(document, RuleCodec.decode(RuleCodec.encode(document)))
+    }
+
+    @Test
+    fun `a version 1 document is read without overrides`() {
+        val legacy = """{"version":1,"groups":[]}"""
+
+        val document = RuleCodec.decode(legacy)
+
+        assertTrue(document.overrides.isEmpty())
+        assertEquals(0L, document.revision)
     }
 
     @Test
     fun `encoded document declares the current schema version`() {
-        val text = RuleCodec.encode(listOf(sampleGroup))
+        val text = RuleCodec.encode(RuleDocument(groups = listOf(sampleGroup)))
 
         assertTrue(text.contains("\"version\": ${RuleCodec.VERSION}"))
     }
@@ -74,7 +97,7 @@ class RuleCodecTest {
             ]}]}
         """.trimIndent()
 
-        val rules = RuleCodec.decode(legacy).single().rules
+        val rules = RuleCodec.decode(legacy).groups.single().rules
 
         assertEquals(
             Capability.PermissionState("android.permission.CAMERA", PermissionMode.DENY),

@@ -1,38 +1,46 @@
 package dev.latch.rule.core.backup
 
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleOverride
 
 /**
  * Computes the document a restore would produce and what it changes.
  *
  * Restore is configuration-only: it never writes system settings. A full restore
  * replaces the whole document; a scoped restore replaces only the selected groups
- * and leaves every other group untouched.
+ * and leaves every other group untouched. Override decisions follow their rules.
  */
 object RestorePlanner {
 
     fun plan(
-        current: List<RuleGroup>,
+        current: RuleDocument,
         snapshot: BackupSnapshot,
         scope: RestoreScope,
     ): RestorePlan {
-        val currentById = current.associateBy { it.id }
-        val targetById = snapshot.groups.associateBy { it.id }
+        val currentById = current.groups.associateBy { it.id }
+        val targetById = snapshot.document.groups.associateBy { it.id }
 
         return when (scope) {
             RestoreScope.Full -> fullPlan(current, currentById, snapshot, targetById)
-            is RestoreScope.Selected -> selectedPlan(current, currentById, snapshot, scope.groupIds, targetById)
+            is RestoreScope.Selected -> selectedPlan(
+                current,
+                currentById,
+                snapshot,
+                scope.groupIds,
+                targetById,
+            )
         }
     }
 
     private fun fullPlan(
-        current: List<RuleGroup>,
+        current: RuleDocument,
         currentById: Map<String, RuleGroup>,
         snapshot: BackupSnapshot,
         targetById: Map<String, RuleGroup>,
     ): RestorePlan {
         val changes = buildList {
-            snapshot.groups.forEach { group ->
+            snapshot.document.groups.forEach { group ->
                 val existing = currentById[group.id]
                 add(
                     GroupChange(
@@ -47,7 +55,7 @@ object RestorePlanner {
                     ),
                 )
             }
-            current.filter { it.id !in targetById }.forEach { group ->
+            current.groups.filter { it.id !in targetById }.forEach { group ->
                 add(GroupChange(group.id, group.name, GroupChangeKind.REMOVED, group.rules.size))
             }
         }
@@ -56,19 +64,23 @@ object RestorePlanner {
             snapshotCreatedAt = snapshot.meta.createdAt,
             scope = RestoreScope.Full,
             changes = changes,
-            groups = snapshot.groups,
+            document = RuleDocument(
+                groups = snapshot.document.groups,
+                overrides = snapshot.document.overrides,
+                revision = current.revision,
+            ),
         )
     }
 
     private fun selectedPlan(
-        current: List<RuleGroup>,
+        current: RuleDocument,
         currentById: Map<String, RuleGroup>,
         snapshot: BackupSnapshot,
         selectedIds: Set<String>,
         targetById: Map<String, RuleGroup>,
     ): RestorePlan {
         val changes = mutableListOf<GroupChange>()
-        val restored = current.map { group ->
+        val restored = current.groups.map { group ->
             if (group.id !in selectedIds) return@map group
             val target = targetById[group.id] ?: return@map group
             changes += GroupChange(
@@ -81,7 +93,7 @@ object RestorePlanner {
         }.toMutableList()
 
         // Selected groups that no longer exist take their snapshot position at the end.
-        snapshot.groups
+        snapshot.document.groups
             .filter { it.id in selectedIds && it.id !in currentById }
             .forEach { group ->
                 restored += group
@@ -93,7 +105,36 @@ object RestorePlanner {
             snapshotCreatedAt = snapshot.meta.createdAt,
             scope = RestoreScope.Selected(selectedIds),
             changes = changes,
-            groups = restored,
+            document = RuleDocument(
+                groups = restored,
+                overrides = mergeOverrides(current.overrides, snapshot.document.overrides, restored, selectedIds),
+                revision = current.revision,
+            ),
         )
+    }
+
+    /** Overrides survive only when both rules still exist after the restore. */
+    private fun mergeOverrides(
+        current: List<RuleOverride>,
+        restored: List<RuleOverride>,
+        groups: List<RuleGroup>,
+        selectedIds: Set<String>,
+    ): List<RuleOverride> {
+        val ruleIds = groups.flatMap { it.rules }.map { it.id }.toSet()
+        val selectedRuleIds = groups
+            .filter { it.id in selectedIds }
+            .flatMap { it.rules }
+            .map { it.id }
+            .toSet()
+
+        val kept = current.filterNot {
+            it.loserRuleId in selectedRuleIds || it.winnerRuleId in selectedRuleIds
+        }
+        val fromSnapshot = restored.filter {
+            it.loserRuleId in selectedRuleIds && it.winnerRuleId in selectedRuleIds
+        }
+        return (kept + fromSnapshot)
+            .filter { it.loserRuleId in ruleIds && it.winnerRuleId in ruleIds }
+            .distinctBy { it.loserRuleId }
     }
 }

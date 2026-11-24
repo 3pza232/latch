@@ -7,7 +7,9 @@ import dev.latch.rule.core.log.LatchEvent
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
@@ -65,7 +67,7 @@ class RuleCoordinatorTest {
         val harness = harness(
             "cmd appops get com.example.app CAMERA" to ShellResult(0, "Uid mode: CAMERA: allow", ""),
         )
-        harness.coordinator.importGroups(listOf(groupWith(rule)), EventSource.IMPORT)
+        harness.coordinator.importDocument(RuleDocument(groups = listOf(groupWith(rule))), EventSource.IMPORT)
 
         harness.coordinator.verifyAll(EventSource.PERIODIC)
 
@@ -106,9 +108,50 @@ class RuleCoordinatorTest {
     }
 
     @Test
+    fun `saving an override suppresses the loser and applies the winner`() = runBlocking {
+        val harness = harness()
+        val group = harness.coordinator.createGroup("组")
+        val existing = rule.copy(id = "allow", capability = Capability.AppOp("CAMERA", OpMode.ALLOW))
+        harness.coordinator.upsertRule(group.id, existing)
+        harness.broker.calls.clear()
+
+        harness.coordinator.upsertRule(
+            group.id,
+            rule,
+            listOf(RuleOverride(loserRuleId = "allow", winnerRuleId = rule.id, createdAt = 1L)),
+        )
+
+        assertEquals(rule.id, harness.coordinator.snapshot.value.suppressed["allow"])
+        assertTrue(
+            harness.broker.calls.contains("cmd appops set --uid com.example.app CAMERA ignore"),
+        )
+    }
+
+    @Test
+    fun `disabling the winner re-applies the suppressed rule`() = runBlocking {
+        val harness = harness()
+        val group = harness.coordinator.createGroup("组")
+        val existing = rule.copy(id = "allow", capability = Capability.AppOp("CAMERA", OpMode.ALLOW))
+        harness.coordinator.upsertRule(group.id, existing)
+        harness.coordinator.upsertRule(
+            group.id,
+            rule,
+            listOf(RuleOverride("allow", rule.id, 1L)),
+        )
+        harness.broker.calls.clear()
+
+        harness.coordinator.setRuleEnabled(rule.id, false)
+
+        assertTrue(harness.coordinator.snapshot.value.suppressed.isEmpty())
+        assertTrue(
+            harness.broker.calls.contains("cmd appops set --uid com.example.app CAMERA allow"),
+        )
+    }
+
+    @Test
     fun `toggling a rule records an enable event`() = runBlocking {
         val harness = harness()
-        harness.coordinator.importGroups(listOf(groupWith(rule)), EventSource.IMPORT)
+        harness.coordinator.importDocument(RuleDocument(groups = listOf(groupWith(rule))), EventSource.IMPORT)
 
         harness.coordinator.setRuleEnabled(rule.id, false)
 
@@ -126,6 +169,8 @@ class RuleCoordinatorTest {
         val broker = FakeBroker(
             mapOf(
                 "cmd appops set --uid com.example.app CAMERA ignore" to ShellResult(0, "", ""),
+                "cmd appops set --uid com.example.app CAMERA allow" to ShellResult(0, "", ""),
+                "cmd appops set --uid com.example.app CAMERA default" to ShellResult(0, "", ""),
                 "cmd appops get com.example.app CAMERA" to ShellResult(0, "Uid mode: CAMERA: ignore", ""),
                 *responses,
             ),
@@ -136,6 +181,7 @@ class RuleCoordinatorTest {
         return Harness(
             RuleCoordinator(ruleStore, resultStore, engine, verifyService, events),
             events,
+            broker,
         )
     }
 
@@ -146,7 +192,11 @@ class RuleCoordinatorTest {
         rules = rules.toList(),
     )
 
-    private class Harness(val coordinator: RuleCoordinator, val events: RecordingEventLog)
+    private class Harness(
+        val coordinator: RuleCoordinator,
+        val events: RecordingEventLog,
+        val broker: FakeBroker,
+    )
 
     private class RecordingEventLog : EventLog {
         private val recorded = mutableListOf<LatchEvent>()
@@ -159,12 +209,12 @@ class RuleCoordinatorTest {
     }
 
     private class InMemoryRuleStore : RuleStore {
-        private var groups: List<RuleGroup> = emptyList()
+        private var document: RuleDocument = RuleDocument()
 
-        override fun load(): RuleLoadResult = RuleLoadResult.Success(groups)
+        override fun load(): RuleLoadResult = RuleLoadResult.Success(document)
 
-        override fun save(groups: List<RuleGroup>) {
-            this.groups = groups
+        override fun save(document: RuleDocument) {
+            this.document = document
         }
     }
 
@@ -180,9 +230,13 @@ class RuleCoordinatorTest {
 
     private class FakeBroker(private val responses: Map<String, ShellResult>) : PrivilegeBroker {
 
+        val calls = mutableListOf<String>()
+
         override fun status(): PrivilegeStatus = PrivilegeStatus.READY
 
-        override suspend fun execute(command: String): ShellResult =
-            responses[command] ?: ShellResult(1, "", "unexpected command: $command")
+        override suspend fun execute(command: String): ShellResult {
+            calls += command
+            return responses[command] ?: ShellResult(1, "", "unexpected command: $command")
+        }
     }
 }

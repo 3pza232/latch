@@ -3,6 +3,7 @@ package dev.latch.rule.core.backup
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -86,8 +87,11 @@ class RestorePlannerTest {
         snapshotGroups: List<RuleGroup>,
         scope: RestoreScope,
     ): RestorePlan = RestorePlanner.plan(
-        current = current,
-        snapshot = BackupSnapshot(meta(snapshotGroups), snapshotGroups),
+        current = RuleDocument(groups = current),
+        snapshot = BackupSnapshot(
+            meta(snapshotGroups),
+            RuleDocument(groups = snapshotGroups),
+        ),
         scope = scope,
     )
 

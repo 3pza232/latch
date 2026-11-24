@@ -3,6 +3,7 @@ package dev.latch.rule.data
 import dev.latch.rule.core.model.Capability
 import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -35,9 +36,9 @@ class FileRuleStoreTest {
             ),
         )
 
-        store.save(listOf(group))
+        store.save(RuleDocument(groups = listOf(group)))
 
-        assertEquals(RuleLoadResult.Success(listOf(group)), store.load())
+        assertEquals(RuleLoadResult.Success(RuleDocument(groups = listOf(group))), store.load())
     }
 
     @Test
@@ -59,7 +60,7 @@ class FileRuleStoreTest {
         val store = FileRuleStore(folder.root)
         store.load()
 
-        store.save(emptyList())
+        store.save(RuleDocument())
 
         val preserved = folder.root.listFiles()!!.filter { it.name.startsWith("rules.json.corrupt-") }
         assertEquals(1, preserved.size)

@@ -6,6 +6,7 @@ import dev.latch.rule.core.backup.RestoreScope
 import dev.latch.rule.core.log.EventLog
 import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.log.LatchEvent
+import dev.latch.rule.core.model.RuleOverride
 import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
@@ -178,14 +179,20 @@ class GatewayServer(
         var applied = 0
         var drifted = 0
         var failed = 0
+        var suppressed = 0
         snapshot.groups.forEach { group ->
             val states = group.rules.map { rule ->
-                if (!rule.enabled || !group.enabled) RuleState.DISABLED
-                else snapshot.results[rule.id]?.state ?: RuleState.PENDING
+                when {
+                    !rule.enabled || !group.enabled -> RuleState.DISABLED
+                    rule.id in snapshot.suppressed -> RuleState.PENDING
+                    else -> snapshot.results[rule.id]?.state ?: RuleState.PENDING
+                }
             }
+            val groupSuppressed = group.rules.count { it.id in snapshot.suppressed }
             applied += states.count { it == RuleState.APPLIED }
             drifted += states.count { it == RuleState.DRIFTED }
             failed += states.count { it == RuleState.FAILED }
+            suppressed += groupSuppressed
             groups.put(
                 JSONObject()
                     .put("id", group.id)
@@ -194,7 +201,8 @@ class GatewayServer(
                     .put("rules", group.rules.size)
                     .put("applied", states.count { it == RuleState.APPLIED })
                     .put("drifted", states.count { it == RuleState.DRIFTED })
-                    .put("failed", states.count { it == RuleState.FAILED }),
+                    .put("failed", states.count { it == RuleState.FAILED })
+                    .put("suppressed", groupSuppressed),
             )
         }
         val gatewayState = gateway.state.value
@@ -212,7 +220,8 @@ class GatewayServer(
                         .put("rules", snapshot.groups.sumOf { it.rules.size })
                         .put("applied", applied)
                         .put("drifted", drifted)
-                        .put("failed", failed),
+                        .put("failed", failed)
+                        .put("suppressed", suppressed),
                 ),
         )
     }
@@ -345,26 +354,30 @@ class GatewayServer(
         .put("rules", meta.rules)
 
     private fun rules(): Response {
-        val text = RuleCodec.encode(coordinator.snapshot.value.groups)
+        val text = RuleCodec.encode(coordinator.snapshot.value.document)
         return newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", text)
     }
 
     private fun importRules(session: IHTTPSession): Response {
         val text = bodyText(session)
         if (text.isBlank()) return json(Response.Status.BAD_REQUEST, error("missing body"))
-        val groups = runCatching { RuleCodec.decode(text) }.getOrElse {
+        val document = runCatching { RuleCodec.decode(text) }.getOrElse {
             return json(Response.Status.BAD_REQUEST, error(it.message ?: "invalid rule document"))
         }
-        runBlocking { coordinator.importGroups(groups, EventSource.GATEWAY) }
+        runBlocking { coordinator.importDocument(document, EventSource.GATEWAY) }
         return json(
             Response.Status.OK,
             JSONObject()
                 .put("ok", true)
-                .put("groups", groups.size)
-                .put("rules", groups.sumOf { it.rules.size }),
+                .put("groups", document.groups.size)
+                .put("rules", document.rules().size),
         )
     }
 
+    /**
+     * Saving a rule that contradicts an existing one returns 409 with the conflicts.
+     * The client resolves it with `resolve: "overwrite" | "keep"`.
+     */
     private fun upsertRule(session: IHTTPSession): Response {
         val json = bodyJson(session) ?: return json(Response.Status.BAD_REQUEST, error("missing body"))
         val groupId = json.optString("groupId")
@@ -374,7 +387,42 @@ class GatewayServer(
         if (groupId.isBlank() || coordinator.snapshot.value.groups.none { it.id == groupId }) {
             return json(Response.Status.BAD_REQUEST, error("unknown group"))
         }
-        val result = runBlocking { coordinator.upsertRule(groupId, normalized, EventSource.GATEWAY) }
+
+        val conflicts = coordinator.conflictsFor(groupId, normalized)
+        val resolve = json.optString("resolve")
+        if (conflicts.isNotEmpty() && resolve.isEmpty()) {
+            return json(
+                Response.Status.CONFLICT,
+                error("rule conflicts with existing rules").put(
+                    "conflicts",
+                    JSONArray().apply {
+                        conflicts.forEach { conflict ->
+                            put(
+                                JSONObject()
+                                    .put("ruleId", conflict.existingRuleId)
+                                    .put("ruleName", conflict.existingRuleName)
+                                    .put("groupId", conflict.existingGroupId)
+                                    .put("groupName", conflict.existingGroupName)
+                                    .put("reason", conflict.summary),
+                            )
+                        }
+                    },
+                ),
+            )
+        }
+        val now = System.currentTimeMillis()
+        val overrides = when (resolve) {
+            "overwrite" -> conflicts.map {
+                RuleOverride(it.existingRuleId, normalized.id, now)
+            }
+            "keep" -> conflicts.map {
+                RuleOverride(normalized.id, it.existingRuleId, now)
+            }
+            else -> emptyList()
+        }
+        val result = runBlocking {
+            coordinator.upsertRule(groupId, normalized, overrides, EventSource.GATEWAY)
+        }
         return json(
             Response.Status.OK,
             JSONObject()

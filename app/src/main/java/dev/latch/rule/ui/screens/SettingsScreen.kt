@@ -187,6 +187,14 @@ fun SettingsScreen(
                 },
             )
             SwitchRow(
+                title = "覆盖解除后自动应用",
+                subtitle = "覆盖规则关闭或删除后，重新下发被覆盖的规则",
+                checked = state.settings.autoReapplyOnUnsuppress,
+                onChange = {
+                    onUpdateSettings(state.settings.copy(autoReapplyOnUnsuppress = it))
+                },
+            )
+            SwitchRow(
                 title = "隐藏最近任务",
                 subtitle = "从最近任务列表隐藏 Latch",
                 checked = state.settings.hideFromRecents,

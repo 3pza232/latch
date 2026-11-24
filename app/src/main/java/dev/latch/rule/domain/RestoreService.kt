@@ -26,7 +26,7 @@ class RestoreService(
     /** Compares a snapshot with the current document without writing anything. */
     suspend fun preview(snapshotId: String, scope: RestoreScope): RestorePlan? {
         val snapshot = backupService.load(snapshotId) ?: return null
-        return RestorePlanner.plan(coordinator.snapshot.value.groups, snapshot, scope)
+        return RestorePlanner.plan(coordinator.snapshot.value.document, snapshot, scope)
     }
 
     suspend fun restore(
@@ -36,11 +36,11 @@ class RestoreService(
         source: EventSource = EventSource.RESTORE,
     ): RestorePlan? {
         val snapshot = backupService.load(snapshotId) ?: return null
-        val plan = RestorePlanner.plan(coordinator.snapshot.value.groups, snapshot, scope)
+        val plan = RestorePlanner.plan(coordinator.snapshot.value.document, snapshot, scope)
         if (plan.affectedGroupIds.isEmpty()) return plan
 
         backupService.snapshotNow(BackupReason.PRE_RESTORE)
-        coordinator.restore(plan.groups)
+        coordinator.restore(plan.document)
         if (apply) {
             plan.affectedGroupIds.forEach { groupId -> coordinator.applyGroup(groupId, source) }
         }

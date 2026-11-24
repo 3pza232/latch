@@ -5,31 +5,51 @@ import dev.latch.rule.core.model.OpMode
 import dev.latch.rule.core.model.OpScope
 import dev.latch.rule.core.model.PermissionMode
 import dev.latch.rule.core.model.Rule
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleOverride
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
  * Canonical JSON form of stored rules. This is also the import/export format,
- * so it is versioned and must stay backward compatible.
+ * so it is versioned and keeps reading older documents.
+ *
+ * Version 2 adds root-level `overrides` (user-confirmed conflict decisions) and
+ * `revision`. A version 1 document is read as a document without overrides.
  */
 object RuleCodec {
 
-    const val VERSION = 1
+    const val VERSION = 2
 
-    fun encode(groups: List<RuleGroup>): String = JSONObject().apply {
+    fun encode(document: RuleDocument): String = JSONObject().apply {
         put("version", VERSION)
-        put("groups", JSONArray().apply { groups.forEach { put(encodeGroup(it)) } })
+        put("revision", document.revision)
+        put("groups", JSONArray().apply { document.groups.forEach { put(encodeGroup(it)) } })
+        put("overrides", JSONArray().apply { document.overrides.forEach { put(encodeOverride(it)) } })
     }.toString(2)
 
-    fun decode(text: String): List<RuleGroup> {
+    fun decode(text: String): RuleDocument {
         val root = JSONObject(text)
+        val version = if (root.has("version")) root.getInt("version") else 1
+        require(version <= VERSION) { "unsupported rule document version $version" }
         val array = root.optJSONArray("groups") ?: JSONArray()
-        return buildList {
+        val groups = buildList {
             for (i in 0 until array.length()) {
                 add(decodeGroup(array.getJSONObject(i)))
             }
         }
+        val overridesJson = root.optJSONArray("overrides") ?: JSONArray()
+        val overrides = buildList {
+            for (i in 0 until overridesJson.length()) {
+                add(decodeOverride(overridesJson.getJSONObject(i)))
+            }
+        }
+        return RuleDocument(
+            groups = groups,
+            overrides = overrides,
+            revision = root.optLong("revision", 0L),
+        )
     }
 
     private fun encodeGroup(group: RuleGroup) = JSONObject().apply {
@@ -64,6 +84,20 @@ object RuleCodec {
         targetPackage = json.getString("targetPackage"),
         enabled = json.optBoolean("enabled", true),
         capability = decodeCapability(json.getJSONObject("capability")),
+    )
+
+    private fun encodeOverride(override: RuleOverride) = JSONObject().apply {
+        put("loserRuleId", override.loserRuleId)
+        put("winnerRuleId", override.winnerRuleId)
+        put("createdAt", override.createdAt)
+        put("reason", override.reason)
+    }
+
+    private fun decodeOverride(json: JSONObject) = RuleOverride(
+        loserRuleId = json.getString("loserRuleId"),
+        winnerRuleId = json.getString("winnerRuleId"),
+        createdAt = json.optLong("createdAt"),
+        reason = json.optString("reason", "user-confirmed"),
     )
 
     private fun encodeCapability(capability: Capability) = JSONObject().apply {

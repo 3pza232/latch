@@ -35,6 +35,8 @@ fun RuleRow(
     modifier: Modifier = Modifier,
     onLongClick: () -> Unit = {},
     selected: Boolean = false,
+    /** Name of the rule that overrides this one, when an override applies. */
+    suppressedBy: String? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         val disabled = !rule.enabled || state == RuleState.DISABLED
@@ -80,7 +82,15 @@ fun RuleRow(
             }
             if (!disabled) {
                 Spacer(Modifier.width(8.dp))
-                StatusChip(state)
+                if (suppressedBy != null) {
+                    Text(
+                        "被「$suppressedBy」覆盖",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    StatusChip(state)
+                }
             }
             Spacer(Modifier.width(8.dp))
             Switch(checked = rule.enabled, onCheckedChange = onToggle)

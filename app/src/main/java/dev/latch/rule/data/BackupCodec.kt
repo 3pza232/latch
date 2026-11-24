@@ -3,7 +3,7 @@ package dev.latch.rule.data
 import dev.latch.rule.core.backup.BackupMeta
 import dev.latch.rule.core.backup.BackupReason
 import dev.latch.rule.core.backup.BackupSnapshot
-import dev.latch.rule.core.model.RuleGroup
+import dev.latch.rule.core.model.RuleDocument
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -16,9 +16,11 @@ object BackupCodec {
     const val SCHEMA = "latch.backup"
     const val VERSION = 1
 
-    fun hash(groups: List<RuleGroup>): String {
+    /** Content hash that ignores the write counter, so a no-op save is not a new snapshot. */
+    fun hash(document: RuleDocument): String {
+        val canonical = RuleCodec.encode(document.copy(revision = 0))
         val digest = MessageDigest.getInstance("SHA-256")
-            .digest(RuleCodec.encode(groups).toByteArray(Charsets.UTF_8))
+            .digest(canonical.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }
     }
 
@@ -35,13 +37,13 @@ object BackupCodec {
                 .put("groups", snapshot.meta.groups)
                 .put("rules", snapshot.meta.rules),
         )
-        put("document", JSONObject(RuleCodec.encode(snapshot.groups)))
+        put("document", JSONObject(RuleCodec.encode(snapshot.document)))
     }.toString(2)
 
     fun decode(text: String): BackupSnapshot? = runCatching {
         val json = JSONObject(text)
         if (json.optString("schema") != SCHEMA) return@runCatching null
-        val groups = RuleCodec.decode(json.getJSONObject("document").toString())
+        val document = RuleCodec.decode(json.getJSONObject("document").toString())
         val summary = json.optJSONObject("summary")
         BackupSnapshot(
             meta = BackupMeta(
@@ -49,11 +51,11 @@ object BackupCodec {
                 createdAt = json.getLong("createdAt"),
                 reason = BackupReason.entries.firstOrNull { it.wire == json.optString("reason") }
                     ?: BackupReason.AUTO_CHANGE,
-                groups = summary?.optInt("groups") ?: groups.size,
-                rules = summary?.optInt("rules") ?: groups.sumOf { it.rules.size },
+                groups = summary?.optInt("groups") ?: document.groups.size,
+                rules = summary?.optInt("rules") ?: document.rules().size,
                 docHash = json.optString("docHash"),
             ),
-            groups = groups,
+            document = document,
         )
     }.getOrNull()
 

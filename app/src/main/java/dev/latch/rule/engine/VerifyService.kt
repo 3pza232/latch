@@ -6,6 +6,7 @@ import dev.latch.rule.core.log.EventSource
 import dev.latch.rule.core.model.Rule
 import dev.latch.rule.core.model.RuleGroup
 import dev.latch.rule.core.model.RuleState
+import dev.latch.rule.core.rules.ConflictResolver
 import dev.latch.rule.data.ResultStore
 import dev.latch.rule.data.RuleLoadResult
 import dev.latch.rule.data.RuleStore
@@ -92,14 +93,18 @@ class VerifyService(
         )
     }
 
-    /** An unreadable document must not look like "there are no rules". */
-    private fun enabledGroups(): List<RuleGroup> =
-        (ruleStore.load() as? RuleLoadResult.Success)?.groups.orEmpty().filter { it.enabled }
-
-    private fun enabledEntries(): List<Pair<RuleGroup, Rule>> =
-        enabledGroups().flatMap { group ->
-            group.rules.filter { it.enabled }.map { group to it }
+    /**
+     * Active rules, excluding rules covered by an override: verifying them would
+     * report drift for a state the user intentionally replaced.
+     * An unreadable document must not look like "there are no rules".
+     */
+    private fun enabledEntries(): List<Pair<RuleGroup, Rule>> {
+        val document = (ruleStore.load() as? RuleLoadResult.Success)?.document ?: return emptyList()
+        val suppressed = ConflictResolver.suppressedBy(document)
+        return document.groups.filter { it.enabled }.flatMap { group ->
+            group.rules.filter { it.enabled && it.id !in suppressed }.map { group to it }
         }
+    }
 }
 
 fun RuleResult.toStored(checkedAt: Long): StoredResult = StoredResult(

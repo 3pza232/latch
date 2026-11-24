@@ -12,6 +12,8 @@ data class LatchSettings(
     val hideFromRecents: Boolean = false,
     /** Days of event log to keep; 0 means keep indefinitely. */
     val logRetentionDays: Int = 30,
+    /** Re-apply rules that become active again when an override is lifted. */
+    val autoReapplyOnUnsuppress: Boolean = true,
 )
 
 interface SettingsStore {
@@ -30,6 +32,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         notifyOnDrift = prefs.getBoolean(KEY_NOTIFY, false),
         hideFromRecents = prefs.getBoolean(KEY_HIDE_RECENTS, false),
         logRetentionDays = prefs.getInt(KEY_LOG_RETENTION, 30),
+        autoReapplyOnUnsuppress = prefs.getBoolean(KEY_AUTO_REAPPLY, true),
     )
 
     override fun save(settings: LatchSettings) {
@@ -40,6 +43,7 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
             putBoolean(KEY_NOTIFY, settings.notifyOnDrift)
             putBoolean(KEY_HIDE_RECENTS, settings.hideFromRecents)
             putInt(KEY_LOG_RETENTION, settings.logRetentionDays)
+            putBoolean(KEY_AUTO_REAPPLY, settings.autoReapplyOnUnsuppress)
         }
     }
 
@@ -51,5 +55,6 @@ class PreferencesSettingsStore(context: Context) : SettingsStore {
         const val KEY_NOTIFY = "notify_on_drift"
         const val KEY_HIDE_RECENTS = "hide_from_recents"
         const val KEY_LOG_RETENTION = "log_retention_days"
+        const val KEY_AUTO_REAPPLY = "auto_reapply_after_unsuppress"
     }
 }

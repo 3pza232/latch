@@ -1,5 +1,6 @@
 package dev.latch.rule.core.backup
 
+import dev.latch.rule.core.model.RuleDocument
 import dev.latch.rule.core.model.RuleGroup
 
 /** Why a snapshot exists. Manual and pre-restore snapshots are never pruned automatically. */
@@ -22,8 +23,10 @@ data class BackupMeta(
 
 data class BackupSnapshot(
     val meta: BackupMeta,
-    val groups: List<RuleGroup>,
-)
+    val document: RuleDocument,
+) {
+    val groups: List<RuleGroup> get() = document.groups
+}
 
 /** Which part of a snapshot to reinstate. */
 sealed interface RestoreScope {
@@ -47,13 +50,14 @@ data class RestorePlan(
     val scope: RestoreScope,
     val changes: List<GroupChange>,
     /** The document that restore would persist. */
-    val groups: List<RuleGroup>,
+    val document: RuleDocument,
 ) {
+    val groups: List<RuleGroup> get() = document.groups
     val added: Int get() = changes.count { it.kind == GroupChangeKind.ADDED }
     val replaced: Int get() = changes.count { it.kind == GroupChangeKind.REPLACED }
     val removed: Int get() = changes.count { it.kind == GroupChangeKind.REMOVED }
     val unchanged: Int get() = changes.count { it.kind == GroupChangeKind.UNCHANGED }
-    val ruleCount: Int get() = groups.sumOf { it.rules.size }
+    val ruleCount: Int get() = document.rules().size
 
     /** Groups that will be written and should therefore be re-verified. */
     val affectedGroupIds: Set<String>

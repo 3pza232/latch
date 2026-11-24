@@ -52,6 +52,14 @@ fun GroupStatusSummary(
                     color = statusColor(RuleState.FAILED),
                 )
             }
+            if (summary.suppressed > 0) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${summary.suppressed} 被覆盖",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             if (summary.disabled > 0) {
                 Spacer(Modifier.width(8.dp))
                 Text(

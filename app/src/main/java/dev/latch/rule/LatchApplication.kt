@@ -63,8 +63,14 @@ class AppContainer(context: Context) {
     val statsStore: StatsStore = FileStatsStore(File(appContext.filesDir, STATS_DIRECTORY))
     val statsService: StatsService = StatsService(fileEventLog, statsStore)
     val verifyService: VerifyService = VerifyService(ruleStore, resultStore, ruleEngine, eventLog)
-    val ruleCoordinator: RuleCoordinator =
-        RuleCoordinator(ruleStore, resultStore, ruleEngine, verifyService, eventLog, backupService)
+    val ruleCoordinator: RuleCoordinator = RuleCoordinator(
+        ruleStore,
+        resultStore,
+        ruleEngine,
+        verifyService,
+        eventLog,
+        backupService,
+    ) { settingsStore.load().autoReapplyOnUnsuppress }
     val restoreService: RestoreService = RestoreService(backupService, ruleCoordinator, eventLog)
     val agentGateway: AgentGateway = AgentGateway(
         appContext,

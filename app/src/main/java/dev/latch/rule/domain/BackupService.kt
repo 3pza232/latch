@@ -38,8 +38,8 @@ class BackupService(
 
     /** Returns null when there is nothing to record (no readable document, or no change). */
     suspend fun snapshotNow(reason: BackupReason): BackupMeta? = withContext(Dispatchers.IO) {
-        val groups = currentGroups() ?: return@withContext null
-        val hash = BackupCodec.hash(groups)
+        val document = currentDocument() ?: return@withContext null
+        val hash = BackupCodec.hash(document)
         val latest = store.list().firstOrNull()
         if (reason == BackupReason.AUTO_CHANGE && latest?.docHash == hash) return@withContext null
 
@@ -48,11 +48,11 @@ class BackupService(
             id = "b-$now-${UUID.randomUUID().toString().take(8)}",
             createdAt = now,
             reason = reason,
-            groups = groups.size,
-            rules = groups.sumOf { it.rules.size },
+            groups = document.groups.size,
+            rules = document.rules().size,
             docHash = hash,
         )
-        store.save(BackupSnapshot(meta, groups))
+        store.save(BackupSnapshot(meta, document))
         eventLog.record(
             LatchEvent(
                 level = EventLevel.INFO,
@@ -78,7 +78,7 @@ class BackupService(
     /** Records the current state once when no snapshot exists yet. */
     suspend fun snapshotOnStartup() {
         if (withContext(Dispatchers.IO) { store.list() }.isNotEmpty()) return
-        val groups = withContext(Dispatchers.IO) { currentGroups() }.orEmpty()
+        val groups = withContext(Dispatchers.IO) { currentDocument() }?.groups.orEmpty()
         if (groups.isEmpty()) return
         snapshotNow(BackupReason.AUTO_CHANGE)
     }
@@ -101,6 +101,6 @@ class BackupService(
         doomed.size
     }
 
-    private fun currentGroups(): List<dev.latch.rule.core.model.RuleGroup>? =
-        (ruleStore.load() as? RuleLoadResult.Success)?.groups
+    private fun currentDocument(): dev.latch.rule.core.model.RuleDocument? =
+        (ruleStore.load() as? RuleLoadResult.Success)?.document
 }
