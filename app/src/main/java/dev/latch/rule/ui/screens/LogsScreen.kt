@@ -298,6 +298,7 @@ private fun actionLabel(action: EventAction): Int = when (action) {
     EventAction.GATEWAY_START -> R.string.action_gateway_start
     EventAction.GATEWAY_STOP -> R.string.action_gateway_stop
     EventAction.SKIP -> R.string.action_skip
+    EventAction.SHELL -> R.string.action_shell
     EventAction.ROTATE -> R.string.action_rotate
     EventAction.MIGRATE -> R.string.action_migrate
 }

@@ -17,12 +17,13 @@
 param(
     [Parameter(Mandatory = $true)][string]$Address,
     [Parameter(Mandatory = $true)]
-    [ValidateSet('status', 'rules', 'logs', 'backups', 'backup', 'restore', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
+    [ValidateSet('status', 'rules', 'logs', 'shell', 'backups', 'backup', 'restore', 'apply', 'verify', 'repair', 'enable', 'disable', 'enable-group', 'disable-group', 'delete', 'add', 'import', 'info')]
     [string]$Command,
     [string]$Code = '',
     [string]$Group = '',
     [string]$Rule = '',
     [string]$Backup = '',
+    [string]$Shell = '',
     [switch]$Apply,
     [string]$File = '',
     [string]$TokenFile = ''
@@ -84,6 +85,15 @@ switch ($Command) {
             Select-Object @{n = 'time'; e = { [DateTimeOffset]::FromUnixTimeMilliseconds($_.ts).ToLocalTime().ToString('MM-dd HH:mm:ss') } },
                 level, source, action, outcome, detail |
             Format-Table -AutoSize | Out-String -Width 220
+    }
+    'shell' {
+        if (-not $Shell) { throw 'shell requires -Shell <command>' }
+        $body = @{ command = $Shell } | ConvertTo-Json
+        $result = Invoke-Api -Method Post -Path '/api/shell' -Body $body
+        "EXIT $($result.exitCode)  $($result.durationMs)ms"
+        if ($result.stdout) { $result.stdout }
+        if ($result.stderr) { $result.stderr }
+        if ($result.truncated) { '… output truncated' }
     }
     'backups' {
         $result = Invoke-Api -Method Get -Path '/api/backups'

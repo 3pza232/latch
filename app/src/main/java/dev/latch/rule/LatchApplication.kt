@@ -23,6 +23,7 @@ import dev.latch.rule.data.SettingsStore
 import dev.latch.rule.data.StatsStore
 import dev.latch.rule.domain.BackupService
 import dev.latch.rule.domain.RestoreService
+import dev.latch.rule.domain.ShellService
 import dev.latch.rule.domain.RuleCoordinator
 import dev.latch.rule.domain.StatsService
 import dev.latch.rule.domain.VerifyService
@@ -90,6 +91,7 @@ class AppContainer(context: Context) {
         uidLookup = uidLookup,
     )
     val restoreService: RestoreService = RestoreService(backupService, ruleCoordinator, eventLog)
+    val shellService: ShellService = ShellService(privilegeBroker, eventLog)
     val agentGateway: AgentGateway = AgentGateway(
         appContext,
         ruleCoordinator,
@@ -99,6 +101,8 @@ class AppContainer(context: Context) {
         restoreService,
         statsService,
         targetPolicy,
+        shellService,
+        settingsStore,
     )
     val driftNotifier: DriftNotifier = DriftNotifier(appContext)
     val installedApps: InstalledApps = InstalledApps(appContext)

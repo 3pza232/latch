@@ -159,6 +159,15 @@ fun SettingsScreen(
                 )
             }
 
+            SwitchRow(
+                title = stringResource(R.string.settings_shell),
+                subtitle = stringResource(R.string.settings_shell_sub),
+                checked = state.settings.allowRemoteShell,
+                onChange = {
+                    onUpdateSettings(state.settings.copy(allowRemoteShell = it))
+                },
+            )
+
             SectionTitle(stringResource(R.string.settings_selfcheck))
             SwitchRow(
                 title = stringResource(R.string.settings_auto_open),

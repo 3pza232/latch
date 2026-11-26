@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import dev.latch.rule.data.SettingsStore
+import dev.latch.rule.domain.ShellService
 
 /**
  * Owns the local HTTP gateway and the one-time pairing code.
@@ -36,6 +38,8 @@ class AgentGateway(
     private val restoreService: RestoreService,
     private val statsService: StatsService,
     private val targetPolicy: TargetPolicy,
+    private val shellService: ShellService,
+    private val settingsStore: SettingsStore,
 ) {
 
     enum class Status { IDLE, WAITING, CONNECTED, ERROR }
@@ -85,6 +89,8 @@ class AgentGateway(
             restoreService,
             statsService,
             targetPolicy,
+            shellService,
+            settingsStore,
         )
         val started = runCatching { created.start(2_000, false) }
         if (started.isFailure) {

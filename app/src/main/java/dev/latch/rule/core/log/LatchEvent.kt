@@ -35,6 +35,7 @@ enum class EventAction(val wire: String) {
     GATEWAY_START("gateway_start"),
     GATEWAY_STOP("gateway_stop"),
     SKIP("skip"),
+    SHELL("shell"),
     ROTATE("rotate"),
     MIGRATE("migrate"),
 }

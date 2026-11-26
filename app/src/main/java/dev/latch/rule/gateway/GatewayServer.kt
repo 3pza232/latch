@@ -21,6 +21,8 @@ import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
+import dev.latch.rule.data.SettingsStore
+import dev.latch.rule.domain.ShellService
 
 /** Minimal JSON REST surface for the paired agent. Pairing is the only unauthenticated route. */
 class GatewayServer(
@@ -33,6 +35,8 @@ class GatewayServer(
     private val restoreService: RestoreService,
     private val statsService: StatsService,
     private val targetPolicy: TargetPolicy,
+    private val shellService: ShellService,
+    private val settingsStore: SettingsStore,
 ) : NanoHTTPD(EPHEMERAL_PORT) {
 
     override fun serve(session: IHTTPSession): Response {
@@ -47,6 +51,7 @@ class GatewayServer(
                 (uri == "/api" || uri == "/api/docs") && method == Method.GET -> apiDocs()
                 uri == "/api/state" && method == Method.GET -> state()
                 uri == "/api/logs" && method == Method.GET -> logs(session)
+                uri == "/api/shell" && method == Method.POST -> shell(session)
                 uri == "/api/stats" && method == Method.GET -> stats()
                 uri == "/api/backups" && method == Method.GET -> backups()
                 uri == "/api/backups" && method == Method.POST -> createBackup()
@@ -108,6 +113,14 @@ class GatewayServer(
                 JSONArray()
                     .put(endpoint("GET", "/api/state", null, "Gateway/Shizuku status, group counts and summary"))
                     .put(endpoint("GET", "/api/logs?limit=200", null, "Recent sanitized events (no commands or raw output)"))
+                    .put(
+                        endpoint(
+                            "POST",
+                            "/api/shell",
+                            JSONObject().put("command", "<shell command>"),
+                            "Run a shell command through Shizuku; disabled by a setting",
+                        ),
+                    )
                     .put(endpoint("GET", "/api/stats", null, "Run counters, active days and the last seven days"))
                     .put(endpoint("GET", "/api/backups", null, "List rule snapshots, newest first"))
                     .put(endpoint("POST", "/api/backups", null, "Create a manual snapshot now"))
@@ -262,6 +275,31 @@ class GatewayServer(
         .put("message", event.message)
         .put("detail", event.detail)
         .put("durationMs", event.durationMs)
+
+    private fun shell(session: IHTTPSession): Response {
+        if (!settingsStore.load().allowRemoteShell) {
+            return json(Response.Status.FORBIDDEN, error("remote shell is disabled"))
+        }
+        val body = bodyJson(session) ?: return json(Response.Status.BAD_REQUEST, error("missing body"))
+        val command = body.optString("command")
+        if (command.isBlank()) {
+            return json(Response.Status.BAD_REQUEST, error("missing command"))
+        }
+        if (command.length > ShellService.MAX_COMMAND) {
+            return json(Response.Status.BAD_REQUEST, error("command is too long"))
+        }
+        val outcome = runBlocking { shellService.execute(command) }
+        return json(
+            Response.Status.OK,
+            JSONObject()
+                .put("ok", true)
+                .put("exitCode", outcome.exitCode)
+                .put("stdout", outcome.stdout)
+                .put("stderr", outcome.stderr)
+                .put("durationMs", outcome.durationMs)
+                .put("truncated", outcome.truncated),
+        )
+    }
 
     private fun stats(): Response {
         val snapshot = runBlocking { statsService.refresh() }
