@@ -82,14 +82,6 @@ fun LatchApp(
     ) { uri: Uri? ->
         if (uri != null) viewModel.exportLogsToUri(uri)
     }
-    var pendingBackupExport by rememberSaveable { mutableStateOf<String?>(null) }
-    val backupExportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri: Uri? ->
-        val snapshotId = pendingBackupExport
-        pendingBackupExport = null
-        if (uri != null && snapshotId != null) viewModel.exportBackupToUri(snapshotId, uri)
-    }
 
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
@@ -204,10 +196,6 @@ fun LatchApp(
                 onPreview = viewModel::previewRestore,
                 onClearPreview = viewModel::clearRestorePreview,
                 onRestore = viewModel::restoreBackup,
-                onExport = { snapshotId ->
-                    pendingBackupExport = snapshotId
-                    backupExportLauncher.launch("latch-backup-$snapshotId.json")
-                },
                 onDelete = viewModel::deleteBackups,
             )
 

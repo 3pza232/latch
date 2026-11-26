@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -96,7 +95,6 @@ fun BackupsScreen(
     onPreview: (String, Set<String>?) -> Unit,
     onClearPreview: () -> Unit,
     onRestore: (String, Set<String>?, Boolean) -> Unit,
-    onExport: (String) -> Unit,
     onDelete: (Set<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -269,7 +267,6 @@ fun BackupsScreen(
                             }
                         },
                         onLongClick = { selection = selection.toggle(meta.id) },
-                        onExport = { onExport(meta.id) },
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -504,7 +501,6 @@ private fun SnapshotRow(
     selected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onExport: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -534,9 +530,6 @@ private fun SnapshotRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        IconButton(onClick = onExport) {
-            Icon(Icons.Filled.Share, contentDescription = stringResource(R.string.backups_export))
         }
     }
 }

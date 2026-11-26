@@ -21,7 +21,6 @@ import dev.latch.rule.core.model.RuleState
 import dev.latch.rule.core.rules.RuleConflict
 import dev.latch.rule.core.rules.RuleValidation
 import dev.latch.rule.core.stats.StatsSnapshot
-import dev.latch.rule.data.BackupCodec
 import dev.latch.rule.data.LatchSettings
 import dev.latch.rule.data.RuleCodec
 import dev.latch.rule.data.StoredResult
@@ -484,14 +483,6 @@ class LatchViewModel(private val container: AppContainer) : ViewModel() {
             val text = container.fileEventLog.exportText()
             val ok = text.isNotEmpty() && writeText(uri, text)
             _uiState.update { it.copy(message = text(if (ok) R.string.msg_logs_exported else R.string.msg_no_logs)) }
-        }
-    }
-
-    fun exportBackupToUri(snapshotId: String, uri: Uri) {
-        viewModelScope.launch {
-            val snapshot = container.backupService.load(snapshotId)
-            val ok = snapshot != null && writeText(uri, BackupCodec.encode(snapshot))
-            _uiState.update { it.copy(message = text(if (ok) R.string.msg_backup_exported else R.string.msg_export_failed)) }
         }
     }
 

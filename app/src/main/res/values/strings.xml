@@ -270,7 +270,6 @@
     <string name="backups_more_groups">… 还有 %1$d 个组</string>
     <string name="backups_apply_now">恢复后立即应用</string>
     <string name="backups_apply_hint">默认只恢复配置，不改变系统状态</string>
-    <string name="backups_export">导出快照</string>
     <string name="backups_selected">已选择 %1$d 个</string>
     <string name="backups_delete_title">删除 %1$d 个快照？</string>
     <string name="backups_delete_body">删除后不可撤销；规则与系统状态不受影响。</string>
@@ -353,7 +352,6 @@
     <string name="msg_export_failed">导出失败</string>
     <string name="msg_logs_exported">日志已导出</string>
     <string name="msg_no_logs">没有可导出的日志</string>
-    <string name="msg_backup_exported">快照已导出</string>
     <string name="msg_backups_deleted">已删除 %1$d 个快照</string>
     <string name="msg_logs_cleared">日志已清空</string>
     <string name="msg_backup_created">已创建备份</string>
