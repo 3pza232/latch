@@ -31,6 +31,7 @@ import dev.latch.rule.gateway.AgentGateway
 import dev.latch.rule.notify.DriftNotifier
 import dev.latch.rule.privilege.PrivilegeBroker
 import dev.latch.rule.privilege.ShizukuPrivilegeBroker
+import dev.latch.rule.work.BackupScheduler
 import dev.latch.rule.work.RetentionScheduler
 import dev.latch.rule.work.VerifyScheduler
 import java.io.File
@@ -104,6 +105,7 @@ class AppContainer(context: Context) {
     val contentResolver: ContentResolver get() = appContext.contentResolver
 
     init {
+        BackupScheduler.enqueue(appContext)
         RetentionScheduler.enqueue(appContext)
         appScope.launch {
             // Fold the log into the persisted counters before any pruning.
