@@ -34,6 +34,7 @@
 | POST | `/pair` | 用配对码换 token |
 | GET | `/api/state` | 网关与 Shizuku 状态、分组计数、汇总 |
 | GET | `/api/logs?limit=200` | 最近事件（只读、已脱敏） |
+| POST | `/api/shell` | 通过 Shizuku 执行 shell 命令（可在设置关闭） |
 | GET | `/api/stats` | 运行统计：轮次、活跃天数、最近 7 天 |
 | GET | `/api/backups` | 规则快照列表（新到旧） |
 | POST | `/api/backups` | 立即创建手动快照 |
@@ -90,6 +91,26 @@ POST /api/rules
 - 已脱敏：不返回命令原文、stdout/stderr、token、配对码；
 - 详情字段（命令与输出）只在应用内的日志页可见。
 
+## 远程命令
+
+`POST /api/shell` 在 Shizuku shell 中执行一条命令，返回退出码、标准输出与标准错误：
+
+```http
+POST /api/shell
+Authorization: Bearer <token>
+{"command":"pm list packages | grep vivo"}
+```
+
+```json
+{"ok":true,"exitCode":0,"stdout":"package:com.vivo.magazine
+…","stderr":"","durationMs":85,"truncated":false}
+```
+
+- 命令上限 8 KB，单条执行沿用 15 秒超时；输出超过 256 KB 会被截断并标记 `truncated`。
+- 设置页「局域网连接」中的「允许远程命令」可以关闭该接口，关闭后返回 403。
+- 只有已配对（持有 Bearer token）的客户端才能调用；每次调用都会写入运行日志。
+- 明文 HTTP，仅在可信局域网使用。
+
 ## 备份与恢复接口
 
 恢复只改规则配置，默认不下发系统命令；`apply: true` 才会在恢复后立即应用。
@@ -113,6 +134,7 @@ POST /api/backups/b-1760000000000-ab12cd34/restore
 
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command status
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command logs
+./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command shell -Shell "pm list packages | grep vivo"
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command backups
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command backup
 ./tools/latch-remote.ps1 -Address 192.168.10.21:42047 -Command restore -Backup <backupId> -Group adslot-lock

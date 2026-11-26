@@ -77,5 +77,6 @@ UI 收集该状态，因此本地与远程修改立即一致。
 
 - 监听 `0.0.0.0` 上由系统分配的随机端口，由前台服务保活
 - 配对码与 token 只存在内存，断开即失效
-- REST 路由集中在 `GatewayServer`，全部写操作转发给 `RuleCoordinator`
+- REST 路由集中在 `GatewayServer`，规则写操作转发给 `RuleCoordinator`
+- `POST /api/shell` 通过 `ShellService` 交给特权通道执行，可在设置中关闭
 - `/meta` 与 `/api` 提供自描述文档，客户端无需预置协议约定
