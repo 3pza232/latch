@@ -107,17 +107,27 @@ class BackupServiceTest {
     }
 
     @Test
-    fun `a new day creates the daily boundary and drops the previous hourly`() = runBlocking {
+    fun `midnight keeps the previous hourly and the next hour drops it`() = runBlocking {
         service.ensureBoundaries()
-        now += 60 * 60_000
+        now = sameDayAt(23, 5)
         service.ensureBoundaries()
-        assertEquals(1, store.list().count { it.reason == BackupReason.HOURLY })
+        val evening = store.list().first { it.reason == BackupReason.HOURLY }
 
         now = nextDayAt(0, 5)
         service.ensureBoundaries()
 
-        assertEquals(0, store.list().count { it.reason == BackupReason.HOURLY })
         assertEquals(2, store.list().count { it.reason == BackupReason.DAILY })
+        assertTrue(store.list().any { it.id == evening.id })
+
+        now = sameDayAt(1, 5)
+        service.ensureBoundaries()
+
+        assertTrue(store.list().none { it.id == evening.id })
+    }
+
+    private fun sameDayAt(hour: Int, minute: Int): Long {
+        val date = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        return date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
     }
 
     @Test
@@ -152,14 +162,22 @@ class BackupServiceTest {
     }
 
     @Test
-    fun `a new hour replaces the previous hourly snapshot`() = runBlocking {
+    fun `hourly snapshots rotate with one hour of history`() = runBlocking {
         service.ensureBoundaries()
         now += 60 * 60_000
         service.ensureBoundaries()
+        val first = store.list().first { it.reason == BackupReason.HOURLY }
+
+        now += 60 * 60_000
+        service.ensureBoundaries()
+        val second = store.list().first { it.reason == BackupReason.HOURLY }
+
         now += 60 * 60_000
         service.ensureBoundaries()
 
-        assertEquals(1, store.list().count { it.reason == BackupReason.HOURLY })
+        assertEquals(2, store.list().count { it.reason == BackupReason.HOURLY })
+        assertTrue(store.list().none { it.id == first.id })
+        assertTrue(store.list().any { it.id == second.id })
     }
 
     @Test

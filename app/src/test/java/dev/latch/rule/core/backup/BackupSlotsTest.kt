@@ -29,7 +29,7 @@ class BackupSlotsTest {
     )
 
     @Test
-    fun `the hourly slot uses a snapshot captured in the current hour`() {
+    fun `the hourly slot uses the previous hour with one hour of buffer`() {
         val metas = listOf(
             meta("current", at(today, 18, 5), BackupReason.HOURLY),
             meta("previous", at(today, 17, 5), BackupReason.HOURLY),
@@ -37,7 +37,20 @@ class BackupSlotsTest {
 
         val points = BackupSlots.select(metas, now, zone)
 
-        assertEquals("current", points.hourly?.id)
+        assertEquals("previous", points.hourly?.id)
+    }
+
+    @Test
+    fun `just after midnight the hourly slot still points at the previous evening`() {
+        val midnight = at(today.plusDays(1), 0, 13)
+        val metas = listOf(
+            meta("evening", at(today, 23, 5), BackupReason.HOURLY),
+            meta("day", at(today.plusDays(1), 0, 2), BackupReason.DAILY),
+        )
+
+        val points = BackupSlots.select(metas, midnight, zone)
+
+        assertEquals("evening", points.hourly?.id)
     }
 
     @Test

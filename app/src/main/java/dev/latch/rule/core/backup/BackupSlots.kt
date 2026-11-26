@@ -17,26 +17,27 @@ data class RestorePoints(
 /**
  * Chooses the snapshot each restore point refers to.
  *
- * A point is a slot, not "now minus N": the hourly slot belongs to the current
- * clock hour; the daily slots belong to the start of the day [daysAgo] days back.
- * A slot takes the newest matching boundary snapshot, and falls back to an older
- * one when the target day has no snapshot, so a gap never empties the slot.
+ * A point is a slot, not "now minus N": the hourly slot belongs to the previous
+ * clock hour (one hour of buffer), the daily slots belong to the start of the day
+ * [daysAgo] days back. A slot takes the newest matching boundary snapshot, and
+ * falls back to an older one when the target has no snapshot, so a gap never
+ * empties the slot.
  */
 object BackupSlots {
 
     fun select(metas: List<BackupMeta>, now: Long, zone: ZoneId): RestorePoints {
         val today = dateOf(now, zone)
-        val currentHour = hourOf(now, zone)
+        val targetHour = hourOf(now, zone).minusHours(1)
         val boundary = metas.filter {
             it.reason == BackupReason.HOURLY || it.reason == BackupReason.DAILY
         }
-        val daily = metas.filter { it.reason == BackupReason.DAILY }
 
         val hourly = boundary
-            .filter { hourOf(it.createdAt, zone) == currentHour }
+            .filter { hourOf(it.createdAt, zone) == targetHour }
             .maxByOrNull { it.createdAt }
-            ?: boundary.filter { it.reason == BackupReason.HOURLY }.maxByOrNull { it.createdAt }
-            ?: daily.maxByOrNull { it.createdAt }
+            ?: boundary.filter { hourOf(it.createdAt, zone) <= targetHour }
+                .maxByOrNull { it.createdAt }
+            ?: boundary.maxByOrNull { it.createdAt }
             ?: metas.filter { it.createdAt <= now }.maxByOrNull { it.createdAt }
 
         fun dailyAt(daysAgo: Long): BackupMeta? {

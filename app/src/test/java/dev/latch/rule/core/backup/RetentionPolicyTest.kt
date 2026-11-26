@@ -27,12 +27,12 @@ class RetentionPolicyTest {
     }
 
     @Test
-    fun `only the newest hourly snapshot is kept`() {
+    fun `the current and previous hour snapshots are kept`() {
         val metas = (1..3).map { meta("hour-$it", it.toLong(), BackupReason.HOURLY) }
 
         val doomed = RetentionPolicy.toDelete(metas)
 
-        assertEquals(setOf("hour-1", "hour-2"), doomed)
+        assertEquals(setOf("hour-1"), doomed)
     }
 
     @Test

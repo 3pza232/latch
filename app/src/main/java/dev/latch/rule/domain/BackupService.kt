@@ -130,17 +130,18 @@ class BackupService(
     }
 
     /**
-     * Hourly snapshots from earlier hours are superseded by the current hour's
-     * boundary (or by today's daily snapshot that covers it). Removing them here
-     * also cleans the 23:00 snapshot as soon as the new day starts.
+     * Keeps the current hour and the previous one: the "1 hour ago" slot targets
+     * the previous hour, so it must survive the next boundary. Older hourly
+     * snapshots are superseded by a daily snapshot and can be removed.
      */
     private fun pruneHourlyOutside(zone: ZoneId, now: Long) {
         val currentHour = Instant.ofEpochMilli(now).atZone(zone).truncatedTo(ChronoUnit.HOURS)
+        val keep = setOf(currentHour, currentHour.minusHours(1))
         store.list()
             .filter { it.reason == BackupReason.HOURLY }
             .filter {
                 Instant.ofEpochMilli(it.createdAt).atZone(zone)
-                    .truncatedTo(ChronoUnit.HOURS) != currentHour
+                    .truncatedTo(ChronoUnit.HOURS) !in keep
             }
             .forEach { store.delete(it.id) }
     }
