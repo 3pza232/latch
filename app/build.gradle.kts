@@ -19,8 +19,8 @@ android {
         applicationId = "dev.latch.rule"
         minSdk = 26
         targetSdk = 36
-        versionCode = 29
-        versionName = "1.3.9"
+        versionCode = 30
+        versionName = "1.4.0"
     }
 
     signingConfigs {
