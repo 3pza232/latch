@@ -138,6 +138,8 @@
     <string name="settings_start_failed">无法启动</string>
     <string name="settings_port_unavailable">端口 %1$d 不可用</string>
     <string name="settings_retry">重试</string>
+    <string name="settings_shell">允许远程命令</string>
+    <string name="settings_shell_sub">已配对的客户端可通过 /api/shell 执行 shell</string>
     <string name="settings_selfcheck">自检</string>
     <string name="settings_auto_open">打开应用时自动校验</string>
     <string name="settings_auto_open_sub">启动后立即核对所有启用规则</string>
@@ -212,6 +214,7 @@
     <string name="action_gateway_start">网关启动</string>
     <string name="action_gateway_stop">网关停止</string>
     <string name="action_skip">跳过</string>
+    <string name="action_shell">远程命令</string>
     <string name="action_rotate">清理</string>
     <string name="action_migrate">迁移</string>
 
@@ -299,8 +302,9 @@
     <string name="stats_last_7_days">最近 7 天</string>
     <string name="stats_no_records">最近 7 天没有记录</string>
     <string name="stats_legend_ok">运行正常</string>
-    <string name="stats_legend_bad">当天有失败 / 漂移</string>
-    <string name="stats_chart_hint">柱高为当日应用、校验、修复的轮次</string>
+    <string name="stats_legend_bad">失败/漂移</string>
+    <string name="stats_legend_empty">无记录</string>
+    <string name="stats_chart_hint">纵轴为 0–23 点，每格 1 小时</string>
     <string name="stats_rule_status">规则状态</string>
     <string name="stats_rules_total">规则总数</string>
     <string name="stats_applied">已生效</string>

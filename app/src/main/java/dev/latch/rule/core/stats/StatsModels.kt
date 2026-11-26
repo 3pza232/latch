@@ -10,10 +10,12 @@ data class DayStats(
     val repaired: Int = 0,
     val failed: Int = 0,
     val drifted: Int = 0,
+    /** Local hours (0-23) with any rule activity. */
+    val activeHours: Set<Int> = emptySet(),
+    /** Local hours (0-23) that contained a failure or drift. */
+    val badHours: Set<Int> = emptySet(),
 ) {
     val runs: Int get() = applyRuns + verifyRuns + repairRuns
-    val good: Int get() = applied + repaired
-    val bad: Int get() = failed + drifted
 }
 
 /** Persisted aggregate. Days whose logs were pruned stay here. */

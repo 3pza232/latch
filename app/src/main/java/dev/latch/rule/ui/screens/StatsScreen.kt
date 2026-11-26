@@ -237,16 +237,17 @@ private fun Kpi(title: String, value: String, subtitle: String, modifier: Modifi
 }
 
 /**
- * Bar height is the number of apply/verify/repair runs that day; the color marks
- * whether the day also contained drifted or failed rules.
+ * One bar per day, divided into 24 hourly cells stacked from 0:00 at the bottom
+ * to 23:00 at the top. A cell is green when the hour had rule activity without
+ * issues, red when it contained a failure or drift, and neutral without activity.
  */
 @Composable
 private fun WeekChart(days: List<DayStats>) {
-    val max = remember(days) { days.maxOfOrNull { it.runs }?.coerceAtLeast(1) ?: 1 }
     val dark = isSystemInDarkTheme()
     val goodColor = if (dark) LatchPalette.DarkSuccess else LatchPalette.Success
     val badColor = if (dark) LatchPalette.DarkDanger else LatchPalette.Danger
-    val hasData = days.any { it.runs > 0 }
+    val emptyColor = MaterialTheme.colorScheme.surfaceVariant
+    val hasData = days.any { it.activeHours.isNotEmpty() }
 
     Column {
         if (!hasData) {
@@ -258,6 +259,7 @@ private fun WeekChart(days: List<DayStats>) {
         } else {
             Row(
                 modifier = Modifier.fillMaxWidth().height(120.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 days.forEach { day ->
@@ -266,15 +268,24 @@ private fun WeekChart(days: List<DayStats>) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
                     ) {
-                        if (day.runs > 0) {
-                            val height = (110f * day.runs / max).dp
-                            Box(
-                                Modifier
-                                    .width(20.dp)
-                                    .height(height)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(if (day.bad > 0) badColor else goodColor),
-                            )
+                        Column(
+                            modifier = Modifier
+                                .width(18.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                        ) {
+                            (23 downTo 0).forEach { hour ->
+                                val color = when {
+                                    hour in day.badHours -> badColor
+                                    hour in day.activeHours -> goodColor
+                                    else -> emptyColor
+                                }
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .background(color),
+                                )
+                            }
                         }
                     }
                 }
@@ -293,9 +304,16 @@ private fun WeekChart(days: List<DayStats>) {
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Legend(goodColor, stringResource(R.string.stats_legend_ok))
+                Spacer(Modifier.width(12.dp))
                 Legend(badColor, stringResource(R.string.stats_legend_bad))
+                Spacer(Modifier.width(12.dp))
+                Legend(emptyColor, stringResource(R.string.stats_legend_empty))
             }
             Spacer(Modifier.height(4.dp))
             Text(

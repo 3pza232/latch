@@ -19,35 +19,43 @@ object StatsAggregator {
         val result = mutableMapOf<String, DayStats>()
         events.forEach { event ->
             val date = dateOf(event.timestamp, zone)
-            val day = result[date] ?: DayStats(date)
-            val updated = when (event.action) {
+            val hour = hourOf(event.timestamp, zone)
+            var day = result[date] ?: DayStats(date)
+
+            if (event.action in ACTIVE_ACTIONS) {
+                day = day.copy(activeHours = day.activeHours + hour)
+            }
+            if (event.ruleId != null && event.outcome in ISSUE_OUTCOMES) {
+                day = day.copy(badHours = day.badHours + hour)
+            }
+
+            day = when (event.action) {
                 EventAction.APPLY -> when {
                     event.ruleId == null -> day.copy(applyRuns = day.applyRuns + 1)
                     event.outcome == APPLIED -> day.copy(applied = day.applied + 1)
-                    else -> null
+                    else -> day
                 }
                 EventAction.VERIFY -> when {
                     event.ruleId == null -> day.copy(verifyRuns = day.verifyRuns + 1)
                     event.outcome == APPLIED -> day.copy(applied = day.applied + 1)
-                    else -> null
+                    else -> day
                 }
                 EventAction.REPAIR -> when {
                     event.ruleId == null -> day.copy(repairRuns = day.repairRuns + 1)
                     event.outcome == APPLIED -> day.copy(repaired = day.repaired + 1)
-                    else -> null
+                    else -> day
                 }
-                else -> null
+                else -> day
             }
-            val withOutcome = updated ?: day
-            if (event.ruleId == null) {
-                result[date] = withOutcome
-                return@forEach
+
+            if (event.ruleId != null) {
+                day = when (event.outcome) {
+                    "FAILED" -> day.copy(failed = day.failed + 1)
+                    "DRIFTED" -> day.copy(drifted = day.drifted + 1)
+                    else -> day
+                }
             }
-            result[date] = when (event.outcome) {
-                "FAILED" -> withOutcome.copy(failed = withOutcome.failed + 1)
-                "DRIFTED" -> withOutcome.copy(drifted = withOutcome.drifted + 1)
-                else -> withOutcome
-            }
+            result[date] = day
         }
         return result
     }
@@ -100,6 +108,16 @@ object StatsAggregator {
     private fun dateOf(timestamp: Long, zone: ZoneId): String =
         Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate().toString()
 
+    private fun hourOf(timestamp: Long, zone: ZoneId): Int =
+        Instant.ofEpochMilli(timestamp).atZone(zone).hour
+
     const val DAYS_IN_CHART = 7
     private const val APPLIED = "APPLIED"
+    private val ACTIVE_ACTIONS = setOf(
+        EventAction.APPLY,
+        EventAction.VERIFY,
+        EventAction.REPAIR,
+        EventAction.SKIP,
+    )
+    private val ISSUE_OUTCOMES = setOf("FAILED", "DRIFTED")
 }

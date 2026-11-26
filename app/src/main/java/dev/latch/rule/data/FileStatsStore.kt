@@ -3,6 +3,7 @@ package dev.latch.rule.data
 import dev.latch.rule.core.stats.DayStats
 import dev.latch.rule.core.stats.StatsDocument
 import java.io.File
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** Persistence for aggregated statistics. */
@@ -39,6 +40,8 @@ class FileStatsStore(private val directory: File) : StatsStore {
                         repaired = item.optInt("repaired"),
                         failed = item.optInt("failed"),
                         drifted = item.optInt("drifted"),
+                        activeHours = item.optJSONArray("activeHours").toIntSet(),
+                        badHours = item.optJSONArray("badHours").toIntSet(),
                     ),
                 )
             }
@@ -72,7 +75,9 @@ class FileStatsStore(private val directory: File) : StatsStore {
                                     .put("applied", day.applied)
                                     .put("repaired", day.repaired)
                                     .put("failed", day.failed)
-                                    .put("drifted", day.drifted),
+                                    .put("drifted", day.drifted)
+                                    .put("activeHours", JSONArray(day.activeHours.sorted()))
+                                    .put("badHours", JSONArray(day.badHours.sorted())),
                             )
                         }
                     },
@@ -91,6 +96,10 @@ class FileStatsStore(private val directory: File) : StatsStore {
 
     private fun JSONObject.optLongOrNull(key: String): Long? =
         if (!has(key) || isNull(key)) null else optLong(key)
+
+    private fun JSONArray?.toIntSet(): Set<Int> = this?.let { array ->
+        buildSet { for (i in 0 until array.length()) add(array.getInt(i)) }
+    }.orEmpty()
 
     private companion object {
         const val FILE_NAME = "stats.json"

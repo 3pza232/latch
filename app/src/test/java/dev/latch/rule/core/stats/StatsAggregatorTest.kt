@@ -52,6 +52,21 @@ class StatsAggregatorTest {
     }
 
     @Test
+    fun `hours mark activity and issues`() {
+        val events = listOf(
+            event(today, 9, EventAction.APPLY),
+            event(today, 10, EventAction.VERIFY, ruleId = "r1", outcome = "APPLIED"),
+            event(today, 11, EventAction.VERIFY, ruleId = "r2", outcome = "DRIFTED"),
+            event(today, 12, EventAction.APPLY, ruleId = "r3", outcome = "FAILED"),
+        )
+
+        val day = StatsAggregator.byDay(events, zone)[today.toString()]!!
+
+        assertEquals(setOf(9, 10, 11, 12), day.activeHours)
+        assertEquals(setOf(11, 12), day.badHours)
+    }
+
+    @Test
     fun `summary counts active days, streak and the seven day window`() {
         val document = StatsDocument(
             firstEventAt = at(today.minusDays(3), 8),
